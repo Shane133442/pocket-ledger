@@ -1,0 +1,17 @@
+{
+  "name": "pocket-ledger",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "scripts": {
+    "verify": "node --check app.js && node --check sw.js",
+    "serve": "npx http-server . -p 4175 -c-1"
+  },
+  "keywords": [
+    "pwa",
+    "offline",
+    "ledger",
+    "indexeddb"
+  ],
+  "license": "MIT"
+}

@@ -1,0 +1,19 @@
+{
+  "name": "記帳金庫 Pocket Ledger",
+  "short_name": "記帳金庫",
+  "description": "手機快速記帳採集端：離線記帳、IndexedDB 儲存、JSON/CSV 匯出匯入。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fffaf0",
+  "theme_color": "#d99a00",
+  "lang": "zh-Hant",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
