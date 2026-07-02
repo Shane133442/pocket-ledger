@@ -1,14 +1,18 @@
 const DB_NAME = "pocket-ledger-mobile";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORES = {
   transactions: "transactions",
   categories: "categories",
-  syncLogs: "sync_logs"
+  syncLogs: "sync_logs",
+  cleanupReceipts: "cleanup_receipts"
 };
 const DEVICE_KEY = "pocket-ledger-device-id";
 const THEME_KEY = "pocket-ledger-theme";
 const LAST_EXPORT_KEY = "pocket-ledger-last-export";
 const LAST_IMPORT_KEY = "pocket-ledger-last-import";
+const RELAY_URL_KEY = "pocket-ledger-relay-url";
+const RELAY_TOKEN_KEY = "pocket-ledger-relay-token";
+const AUTO_CLEANUP_KEY = "pocket-ledger-auto-cleanup-7-days";
 
 const $ = (id) => document.getElementById(id);
 const money = (value) => `${Number(value || 0).toLocaleString("zh-TW", { maximumFractionDigits: 2 })} 元`;
@@ -19,6 +23,8 @@ let formula = "";
 let calculatedAmount = 0;
 let editingId = null;
 let searchQuery = "";
+let undoTimer = null;
+let undoRecordId = null;
 
 function deviceId() {
   let id = localStorage.getItem(DEVICE_KEY);
@@ -46,6 +52,7 @@ function openDb() {
         store.createIndex("type", "type");
       }
       if (!db.objectStoreNames.contains(STORES.syncLogs)) db.createObjectStore(STORES.syncLogs, { keyPath: "id" });
+      if (!db.objectStoreNames.contains(STORES.cleanupReceipts)) db.createObjectStore(STORES.cleanupReceipts, { keyPath: "record_id" });
 
       const createdAt = nowIso();
       tx.objectStore(STORES.categories).put({ id: "default-expense", name: "待分類支出", type: "expense", created_at: createdAt, updated_at: createdAt });
@@ -115,7 +122,14 @@ function normalizeTransaction(input = {}) {
     sync_status: ["local", "pending", "synced", "failed", "conflict"].includes(input.sync_status) ? input.sync_status : "pending",
     source_device: String(input.source_device || deviceId()),
     deleted_at: input.deleted_at || null,
-    conflict_meta: input.conflict_meta || null
+    conflict_meta: input.conflict_meta || null,
+    revision: Math.max(1, Number(input.revision || 1)),
+    base_revision: Math.max(0, Number(input.base_revision || 0)),
+    relay_event_id: input.relay_event_id || null,
+    cloud_received_at: input.cloud_received_at || null,
+    platform_received_at: input.platform_received_at || null,
+    trashed_at: input.trashed_at || null,
+    trash_reason: input.trash_reason || null
   };
 }
 
@@ -186,6 +200,11 @@ async function saveTransaction(detail = false) {
     transaction.created_at = previous.created_at;
     transaction.updated_at = nowIso();
     transaction.sync_status = previous.sync_status === "synced" ? "pending" : previous.sync_status;
+    transaction.base_revision = Number(previous.revision || 1);
+    transaction.revision = transaction.base_revision + 1;
+    transaction.relay_event_id = null;
+    transaction.cloud_received_at = null;
+    transaction.platform_received_at = null;
   }
 
   await putOne(STORES.transactions, transaction);
@@ -194,6 +213,7 @@ async function saveTransaction(detail = false) {
   resetEditor();
   resetCalculator();
   await refresh();
+  void syncPendingToCloud();
 }
 
 function resetEditor() {
@@ -223,12 +243,36 @@ async function editTransaction(id) {
 async function softDeleteTransaction(id) {
   const item = await getOne(STORES.transactions, id);
   if (!item) return;
-  if (!confirm("確定要刪除這筆手機本地資料嗎？刪除會以 deleted_at 保留紀錄，匯出時仍可讓本地平台知道它已被刪除。")) return;
-  item.deleted_at = nowIso();
-  item.updated_at = item.deleted_at;
-  item.sync_status = "pending";
+  if (!confirm("將這筆資料移入手機垃圾桶？你可以在 5 秒內 Undo，之後也能從垃圾桶還原。")) return;
+  item.trashed_at = nowIso();
+  item.trash_reason = "manual";
   await putOne(STORES.transactions, item);
-  await addSyncLog("delete", "success", `${item.note || item.category || item.id} 已標記刪除`);
+  await addSyncLog("trash", "success", `${item.note || item.category || item.id} 已移入垃圾桶`);
+  await refresh();
+  showUndo(item.id);
+}
+
+function showUndo(id) {
+  clearTimeout(undoTimer);
+  undoRecordId = id;
+  $("undoToast").hidden = false;
+  undoTimer = setTimeout(() => { undoRecordId = null; $("undoToast").hidden = true; }, 5000);
+}
+
+async function restoreFromTrash(id) {
+  const item = await getOne(STORES.transactions, id);
+  if (!item?.trashed_at) return;
+  item.trashed_at = null;
+  item.trash_reason = null;
+  await putOne(STORES.transactions, item);
+  await addSyncLog("restore", "success", `${item.note || item.category || item.id} 已從垃圾桶還原`);
+  if (undoRecordId === id) { clearTimeout(undoTimer); undoRecordId = null; $("undoToast").hidden = true; }
+  await refresh();
+}
+
+async function permanentlyDelete(ids) {
+  for (const id of ids) await deleteOne(STORES.transactions, id);
+  await addSyncLog("cleanup", "success", `永久刪除 ${ids.length} 筆垃圾桶資料`);
   await refresh();
 }
 
@@ -321,11 +365,46 @@ async function importJsonFile(file) {
   await refresh();
 }
 
-async function clearDeleted() {
-  if (!confirm("只清除已標記 deleted_at 的本地紀錄。尚未匯出的刪除狀態若清掉，桌面平台將不會知道那筆資料被刪除。確定嗎？")) return;
-  const rows = await getAll(STORES.transactions);
-  for (const row of rows.filter((item) => item.deleted_at)) await deleteOne(STORES.transactions, row.id);
-  await addSyncLog("cleanup", "success", "已清除 deleted_at 紀錄");
+function autoCleanupEnabled() {
+  return localStorage.getItem(AUTO_CLEANUP_KEY) !== "false";
+}
+
+function cleanupCandidates(rows, automatic) {
+  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  return rows.filter((row) => !row.trashed_at && row.platform_received_at && (!automatic || Date.parse(row.platform_received_at) <= cutoff));
+}
+
+function approximateBytes(rows) {
+  return new TextEncoder().encode(JSON.stringify(rows)).byteLength;
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+}
+
+async function movePlatformCopiesToTrash(rows, source) {
+  for (const row of rows) {
+    row.trashed_at = nowIso();
+    row.trash_reason = "platform_retention";
+    await putOne(STORES.transactions, row);
+  }
+  await addSyncLog("trash", "success", `${source === "automatic" ? "自動" : "手動"}將 ${rows.length} 筆已送達平台的手機副本移入垃圾桶`);
+}
+
+async function cleanupPlatformCopies({ automatic = false } = {}) {
+  if (automatic && !autoCleanupEnabled()) return;
+  const rows = cleanupCandidates(await getAll(STORES.transactions), automatic);
+  if (!rows.length) {
+    if (!automatic) alert("目前沒有符合條件、可安全清理的資料。");
+    return;
+  }
+  if (!automatic) {
+    const accepted = confirm(`準備將 ${rows.length} 筆資料移入垃圾桶，估計占用 ${formatBytes(approximateBytes(rows))}。\n\n清理已安全送達平台的手機副本。資料會先留在手機垃圾桶，可還原或再永久刪除；Google 中繼站、平台採集區與正式帳本不受影響。是否繼續？`);
+    if (!accepted) return;
+  }
+  await movePlatformCopiesToTrash(rows, automatic ? "automatic" : "manual");
   await refresh();
 }
 
@@ -333,6 +412,7 @@ function renderTransactions(rows) {
   const list = $("transactionList");
   const template = $("transactionTemplate");
   const visible = rows
+    .filter((row) => !row.trashed_at)
     .filter((row) => {
       if (!searchQuery) return true;
       return [row.note, row.category, row.date, row.type, row.sync_status].some((value) => String(value || "").toLowerCase().includes(searchQuery));
@@ -348,14 +428,35 @@ function renderTransactions(rows) {
   for (const row of visible) {
     const node = template.content.firstElementChild.cloneNode(true);
     const title = row.note || row.category || "名目待補";
-    node.querySelector(".item-meta").textContent = `${row.date}｜${row.type === "income" ? "收入" : "支出"}｜${row.sync_status}${row.deleted_at ? "｜已刪除" : ""}`;
+    const location = row.sync_status === "conflict" ? "衝突" : row.platform_received_at ? "平台" : row.cloud_received_at ? "雲端" : "手機";
+    node.querySelector(".item-meta").textContent = `${row.date}｜${row.type === "income" ? "收入" : "支出"}${row.deleted_at ? "｜已刪除" : ""}`;
     node.querySelector("h3").textContent = title;
     node.querySelector(".item-note").textContent = `${row.category || "待分類"}｜更新 ${new Date(row.updated_at).toLocaleString("zh-TW")}`;
     node.querySelector(".item-side strong").textContent = money(row.amount);
-    node.querySelector(".item-side span").textContent = row.source_device === deviceId() ? "本機" : "匯入";
+    node.querySelector(".item-side span").textContent = location;
+    node.querySelector(".item-side span").classList.add(`status-${location === "手機" ? "phone" : location === "雲端" ? "cloud" : location === "平台" ? "platform" : "conflict"}`);
     node.querySelector('[data-action="edit"]').addEventListener("click", () => editTransaction(row.id));
     node.querySelector('[data-action="delete"]').addEventListener("click", () => softDeleteTransaction(row.id));
     list.append(node);
+  }
+}
+
+function renderTrash(rows) {
+  const trashed = rows.filter((row) => row.trashed_at).sort((a, b) => String(b.trashed_at).localeCompare(String(a.trashed_at)));
+  $("trashCount").textContent = String(trashed.length);
+  $("trashList").innerHTML = "";
+  $("emptyTrashButton").hidden = !trashed.length;
+  for (const row of trashed) {
+    const card = document.createElement("article");
+    card.className = "transaction-item";
+    const info = document.createElement("div");
+    const title = document.createElement("h3"); title.textContent = row.note || row.category || "名目待補";
+    const meta = document.createElement("p"); meta.className = "item-note"; meta.textContent = `${money(row.amount)}｜${row.trash_reason === "platform_retention" ? "已到平台，保留期滿" : "手動刪除"}`;
+    info.append(title, meta);
+    const actions = document.createElement("div"); actions.className = "item-actions";
+    const restore = document.createElement("button"); restore.type = "button"; restore.textContent = "還原"; restore.addEventListener("click", () => restoreFromTrash(row.id));
+    const remove = document.createElement("button"); remove.type = "button"; remove.textContent = "真正刪除"; remove.addEventListener("click", async () => { if (confirm("永久刪除這筆手機資料？此操作無法復原。")) await permanentlyDelete([row.id]); });
+    actions.append(restore, remove); card.append(info, actions); $("trashList").append(card);
   }
 }
 
@@ -369,19 +470,79 @@ function renderSyncLogs(rows) {
 
 async function refresh() {
   const rows = await getAll(STORES.transactions);
+  for (const row of rows.filter((item) => item.deleted_at && !item.trashed_at)) {
+    row.trashed_at = row.deleted_at;
+    row.trash_reason = "legacy_delete";
+    row.deleted_at = null;
+    await putOne(STORES.transactions, row);
+  }
   const logs = await getAll(STORES.syncLogs);
-  const activeRows = rows.filter((row) => !row.deleted_at);
+  const activeRows = rows.filter((row) => !row.deleted_at && !row.trashed_at);
   const todayTotal = activeRows
     .filter((row) => row.date === todayKey() && row.type === "expense")
     .reduce((sum, row) => sum + Number(row.amount || 0), 0);
-  const pending = rows.filter((row) => ["local", "pending", "failed", "conflict"].includes(row.sync_status));
+  const pending = activeRows.filter((row) => ["local", "pending", "failed", "conflict"].includes(row.sync_status));
   $("todayTotal").textContent = money(todayTotal);
   $("pendingCount").textContent = `${pending.length} 筆`;
   const lastExport = localStorage.getItem(LAST_EXPORT_KEY);
   const lastImport = localStorage.getItem(LAST_IMPORT_KEY);
   $("syncSummary").textContent = lastExport ? `上次匯出 ${new Date(lastExport).toLocaleString("zh-TW")}` : (lastImport ? "最近有匯入" : "尚未同步");
   renderTransactions(rows);
+  renderTrash(rows);
   renderSyncLogs(logs);
+  renderCloudState(rows);
+}
+
+function relayConfig() {
+  return { url: localStorage.getItem(RELAY_URL_KEY)?.trim() || "", token: localStorage.getItem(RELAY_TOKEN_KEY) || "" };
+}
+
+function renderCloudState(rows) {
+  const { url, token } = relayConfig();
+  if (!url || !token) { $("cloudState").textContent = "尚未設定"; return; }
+  const phone = rows.filter((row) => !row.cloud_received_at && row.sync_status !== "conflict").length;
+  const cloud = rows.filter((row) => row.cloud_received_at && !row.platform_received_at).length;
+  const platform = rows.filter((row) => row.platform_received_at).length;
+  $("cloudState").textContent = `手機 ${phone}｜雲端 ${cloud}｜平台 ${platform}`;
+}
+
+function jsonp(url, params) {
+  return new Promise((resolve, reject) => {
+    const callback = `pocketLedger_${crypto.randomUUID().replaceAll("-", "")}`;
+    const script = document.createElement("script");
+    const timer = setTimeout(() => finish(new Error("雲端收據查詢逾時")), 12000);
+    const finish = (error, value) => { clearTimeout(timer); script.remove(); delete window[callback]; error ? reject(error) : resolve(value); };
+    window[callback] = (value) => finish(null, value);
+    script.onerror = () => finish(new Error("無法查詢 Google 中繼站"));
+    const query = new URLSearchParams({ ...params, callback });
+    script.src = `${url}?${query}`;
+    document.head.append(script);
+  });
+}
+
+async function syncPendingToCloud() {
+  const config = relayConfig();
+  if (!config.url || !config.token || !navigator.onLine) return;
+  const rows = (await getAll(STORES.transactions)).filter((row) => !row.trashed_at && (!row.cloud_received_at || (row.cloud_received_at && !row.platform_received_at)));
+  if (!rows.length) return;
+  $("cloudState").textContent = "同步中…";
+  for (const row of rows) {
+    try {
+      const eventId = row.relay_event_id || crypto.randomUUID();
+      if (!row.cloud_received_at) {
+        row.relay_event_id = eventId;
+        row.sync_status = "pending";
+        await putOne(STORES.transactions, row);
+        await fetch(config.url, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "push", token: config.token, event: { event_id: eventId, record_id: row.id, device_id: row.source_device, revision: row.revision, base_revision: row.base_revision, updated_at: row.updated_at, payload: row } }) });
+      }
+      const receipt = await jsonp(config.url, { action: "receipt", token: config.token, event_id: eventId });
+      if (receipt?.cloud_received_at) { row.cloud_received_at = receipt.cloud_received_at; row.synced_at = receipt.cloud_received_at; row.sync_status = receipt.platform_received_at ? "synced" : "pending"; }
+      if (receipt?.platform_received_at) { row.platform_received_at = receipt.platform_received_at; row.sync_status = receipt.sync_status === "conflict" ? "conflict" : "synced"; }
+      await putOne(STORES.transactions, row);
+    } catch (error) { await addSyncLog("sync_upload", "failed", `${row.id}: ${error.message}`); }
+  }
+  await refresh();
+  await cleanupPlatformCopies({ automatic: true });
 }
 
 function applyTheme(theme) {
@@ -438,9 +599,30 @@ function initEvents() {
       event.currentTarget.value = "";
     }
   });
-  $("clearDeletedButton").addEventListener("click", clearDeleted);
+  $("undoDeleteButton").addEventListener("click", () => undoRecordId && restoreFromTrash(undoRecordId));
+  $("emptyTrashButton").addEventListener("click", async () => {
+    const rows = (await getAll(STORES.transactions)).filter((row) => row.trashed_at);
+    if (!rows.length) return;
+    if (confirm(`永久刪除垃圾桶內 ${rows.length} 筆資料？此操作無法復原，平台與正式帳本不受影響。`)) await permanentlyDelete(rows.map((row) => row.id));
+  });
+  $("autoCleanupInput").checked = autoCleanupEnabled();
+  $("autoCleanupInput").addEventListener("change", (event) => localStorage.setItem(AUTO_CLEANUP_KEY, String(event.currentTarget.checked)));
+  $("cleanupPlatformButton").addEventListener("click", () => cleanupPlatformCopies({ automatic: false }));
+  $("relayUrlInput").value = localStorage.getItem(RELAY_URL_KEY) || "";
+  $("relayTokenInput").value = localStorage.getItem(RELAY_TOKEN_KEY) || "";
+  $("saveRelayButton").addEventListener("click", async () => {
+    localStorage.setItem(RELAY_URL_KEY, $("relayUrlInput").value.trim());
+    localStorage.setItem(RELAY_TOKEN_KEY, $("relayTokenInput").value);
+    await addSyncLog("sync_upload", "success", "Google 中繼站設定已儲存於此手機");
+    await refresh();
+    void syncPendingToCloud();
+  });
+  $("syncNowButton").addEventListener("click", syncPendingToCloud);
+  window.addEventListener("online", syncPendingToCloud);
 }
 
 initEvents();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");
 refresh();
+setTimeout(syncPendingToCloud, 1500);
+setTimeout(() => cleanupPlatformCopies({ automatic: true }), 2500);

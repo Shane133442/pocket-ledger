@@ -107,6 +107,22 @@
 
       <section class="glass-card">
         <div class="section-title">
+          <div><p class="label">Google 採集中繼站</p><h2>雲端同步</h2></div>
+          <span id="cloudState" class="save-hint">尚未設定</span>
+        </div>
+        <div class="sync-config">
+          <label>Apps Script 網址<input id="relayUrlInput" type="url" placeholder="https://script.google.com/macros/s/…/exec" /></label>
+          <label>配對碼<input id="relayTokenInput" type="password" autocomplete="off" placeholder="只儲存在這支手機" /></label>
+        </div>
+        <div class="sync-actions">
+          <button id="saveRelayButton" type="button">儲存連線設定</button>
+          <button id="syncNowButton" class="primary-button" type="button">立即同步</button>
+        </div>
+        <p class="notice">記帳永遠先存入手機；有網路時會自動嘗試上傳。只有取得雲端收據後才會標示「雲端」。</p>
+      </section>
+
+      <section class="glass-card">
+        <div class="section-title">
           <div>
             <p class="label">採集區</p>
             <h2>手機本地資料</h2>
@@ -119,8 +135,8 @@
       <section class="glass-card">
         <div class="section-title">
           <div>
-            <p class="label">手動同步</p>
-            <h2>匯出 / 匯入</h2>
+            <p class="label">救援與備份</p>
+            <h2>手動匯出 / 匯入</h2>
           </div>
           <span id="syncSummary" class="save-hint">尚未同步</span>
         </div>
@@ -132,14 +148,22 @@
             <input id="importJsonInput" type="file" accept="application/json,.json" />
           </label>
         </div>
+        <label class="cleanup-setting"><input id="autoCleanupInput" type="checkbox" /> 自動清理已送達平台滿 7 天的手機資料</label>
+        <button id="cleanupPlatformButton" type="button">清理資料</button>
         <p class="notice">匯出後不會自動刪除手機資料。匯出的 JSON / CSV 之後再回到本地桌面平台手動匯入。</p>
-        <details>
-          <summary>危險操作</summary>
-          <button id="clearDeletedButton" class="danger-button" type="button">清除已刪除紀錄</button>
+        <details id="trashSection">
+          <summary>垃圾桶（<span id="trashCount">0</span>）</summary>
+          <p class="notice">垃圾桶不影響快速記帳。可逐筆還原，或經二次確認後永久刪除。</p>
+          <div id="trashList" class="transaction-list"></div>
+          <button id="emptyTrashButton" class="danger-button" type="button">清空垃圾桶</button>
         </details>
         <div id="syncLogList" class="sync-log-list"></div>
       </section>
     </main>
+
+    <div id="undoToast" class="undo-toast" role="status" aria-live="polite" hidden>
+      <span>已移入垃圾桶</span><button id="undoDeleteButton" type="button">Undo</button>
+    </div>
 
     <template id="transactionTemplate">
       <article class="transaction-item">

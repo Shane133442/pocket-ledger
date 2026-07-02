@@ -314,6 +314,15 @@ select {
   margin-bottom: 0;
   line-height: 1.65;
 }
+.sync-config { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; margin-bottom:.75rem; }
+.sync-config label { display:grid; gap:.35rem; color:var(--muted); }
+.sync-config input { min-width:0; }
+.cleanup-setting { display:flex; align-items:center; gap:.55rem; margin:.9rem 0; color:var(--muted); }
+.cleanup-setting input { width:1.15rem; height:1.15rem; }
+.status-phone { background:color-mix(in srgb,var(--gold),transparent 78%) !important; }
+.status-cloud { background:color-mix(in srgb,var(--blue),transparent 72%) !important; }
+.status-platform { background:color-mix(in srgb,#38a169,transparent 72%) !important; }
+.status-conflict { background:color-mix(in srgb,var(--danger),transparent 76%) !important; }
 
 details {
   margin-top: 1rem;
@@ -329,6 +338,9 @@ summary {
   border-color: color-mix(in srgb, var(--danger), var(--line) 30%);
   color: var(--danger);
 }
+.undo-toast { position:fixed; left:50%; bottom:max(1rem,env(safe-area-inset-bottom)); z-index:20; transform:translateX(-50%); display:flex; align-items:center; gap:1rem; width:min(calc(100% - 2rem),430px); padding:.8rem 1rem; border:1px solid var(--line); border-radius:16px; background:var(--surface-strong); box-shadow:0 14px 40px rgba(0,0,0,.24); }
+.undo-toast[hidden] { display:none; }
+.undo-toast button { margin-left:auto; color:var(--blue); font-weight:700; }
 
 .empty-state {
   margin: 0;
@@ -345,6 +357,7 @@ summary {
   }
 
   .status-card,
+  .sync-config,
   .calc-actions,
   .form-actions,
   .sync-actions {
