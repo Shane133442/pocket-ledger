@@ -497,6 +497,26 @@ function relayConfig() {
   return { url: localStorage.getItem(RELAY_URL_KEY)?.trim() || "", token: localStorage.getItem(RELAY_TOKEN_KEY) || "" };
 }
 
+function consumePairingHash() {
+  const match = location.hash.match(/^#pair=([A-Za-z0-9_-]+)$/);
+  if (!match) return false;
+  try {
+    const base64 = match[1].replaceAll("-", "+").replaceAll("_", "/");
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+    const bytes = Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
+    const pairing = JSON.parse(new TextDecoder().decode(bytes));
+    const url = new URL(pairing.url);
+    if (pairing.version !== 1 || url.protocol !== "https:" || url.hostname !== "script.google.com" || !String(pairing.token || "")) throw new Error("invalid_pairing");
+    localStorage.setItem(RELAY_URL_KEY, url.href);
+    localStorage.setItem(RELAY_TOKEN_KEY, String(pairing.token));
+    history.replaceState(null, "", `${location.pathname}${location.search}`);
+    return true;
+  } catch {
+    history.replaceState(null, "", `${location.pathname}${location.search}`);
+    return false;
+  }
+}
+
 function renderCloudState(rows) {
   const { url, token } = relayConfig();
   if (!url || !token) { $("cloudState").textContent = "尚未設定"; return; }
@@ -553,6 +573,7 @@ function applyTheme(theme) {
 }
 
 function initEvents() {
+  const pairedNow = consumePairingHash();
   $("dateInput").value = todayKey();
   applyTheme(localStorage.getItem(THEME_KEY) || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
 
@@ -610,6 +631,7 @@ function initEvents() {
   $("cleanupPlatformButton").addEventListener("click", () => cleanupPlatformCopies({ automatic: false }));
   $("relayUrlInput").value = localStorage.getItem(RELAY_URL_KEY) || "";
   $("relayTokenInput").value = localStorage.getItem(RELAY_TOKEN_KEY) || "";
+  if (pairedNow) { $("cloudState").textContent = "配對完成，準備同步"; $("saveHint").textContent = "Google 中繼已配對"; }
   $("saveRelayButton").addEventListener("click", async () => {
     localStorage.setItem(RELAY_URL_KEY, $("relayUrlInput").value.trim());
     localStorage.setItem(RELAY_TOKEN_KEY, $("relayTokenInput").value);
