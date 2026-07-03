@@ -256,21 +256,72 @@ function showUndo(id) {
   clearTimeout(undoTimer);
   undoRecordId = id;
   $("undoToast").hidden = false;
-  undoTimer = setTimeout(() => { undoRecordId = null; $("undoToast").hidden = true; }, 5000);
+  undoTimer = setTimeout(async () => {
+    undoRecordId = null;
+    $("undoToast").hidden = true;
+    await finalizeManualTrash(id);
+  }, 5000);
 }
 
-async function restoreFromTrash(id) {
+async function finalizeManualTrash(id) {
+  const item = await getOne(STORES.transactions, id);
+  if (!item?.trashed_at || item.trash_reason !== "manual" || item.deleted_at) return;
+  const timestamp = nowIso();
+  item.deleted_at = timestamp;
+  item.updated_at = timestamp;
+  item.base_revision = Number(item.revision || 1);
+  item.revision = item.base_revision + 1;
+  item.relay_event_id = null;
+  item.cloud_received_at = null;
+  item.platform_received_at = null;
+  item.sync_status = "pending";
+  await putOne(STORES.transactions, item);
+  await addSyncLog("delete", "success", `${item.note || item.category || item.id} 的刪除狀態等待同步`);
+  await refresh();
+  void syncPendingToCloud();
+}
+
+async function resumeManualTrashFinalization() {
+  const rows = (await getAll(STORES.transactions)).filter((item) => item.trashed_at && item.trash_reason === "manual" && !item.deleted_at);
+  for (const item of rows) {
+    const remaining = Math.max(0, 5000 - (Date.now() - Date.parse(item.trashed_at)));
+    if (!remaining) await finalizeManualTrash(item.id);
+    else setTimeout(() => finalizeManualTrash(item.id), remaining);
+  }
+}
+
+async function restoreFromTrash(id, confirmRestore = true) {
   const item = await getOne(STORES.transactions, id);
   if (!item?.trashed_at) return;
+  if (confirmRestore && !confirm("將這筆資料從垃圾桶還原到手機本地資料？")) return;
+  const needsRestoreSync = item.trash_reason === "manual" && Boolean(item.deleted_at);
   item.trashed_at = null;
   item.trash_reason = null;
+  if (needsRestoreSync) {
+    const timestamp = nowIso();
+    item.deleted_at = null;
+    item.updated_at = timestamp;
+    item.base_revision = Number(item.revision || 1);
+    item.revision = item.base_revision + 1;
+    item.relay_event_id = null;
+    item.cloud_received_at = null;
+    item.platform_received_at = null;
+    item.sync_status = "pending";
+  }
   await putOne(STORES.transactions, item);
   await addSyncLog("restore", "success", `${item.note || item.category || item.id} 已從垃圾桶還原`);
   if (undoRecordId === id) { clearTimeout(undoTimer); undoRecordId = null; $("undoToast").hidden = true; }
   await refresh();
+  if (needsRestoreSync) void syncPendingToCloud();
 }
 
 async function permanentlyDelete(ids) {
+  const records = (await Promise.all(ids.map((id) => getOne(STORES.transactions, id)))).filter(Boolean);
+  const unsafe = records.filter((item) => item.trash_reason === "manual" && item.deleted_at && !item.cloud_received_at);
+  if (unsafe.length) {
+    alert(`有 ${unsafe.length} 筆刪除狀態尚未送達雲端。請先連網並按立即同步，避免資料之後重新出現。`);
+    return;
+  }
   for (const id of ids) await deleteOne(STORES.transactions, id);
   await addSyncLog("cleanup", "success", `永久刪除 ${ids.length} 筆垃圾桶資料`);
   await refresh();
@@ -454,7 +505,7 @@ function renderTrash(rows) {
     const meta = document.createElement("p"); meta.className = "item-note"; meta.textContent = `${money(row.amount)}｜${row.trash_reason === "platform_retention" ? "已到平台，保留期滿" : "手動刪除"}`;
     info.append(title, meta);
     const actions = document.createElement("div"); actions.className = "item-actions";
-    const restore = document.createElement("button"); restore.type = "button"; restore.textContent = "還原"; restore.addEventListener("click", () => restoreFromTrash(row.id));
+    const restore = document.createElement("button"); restore.type = "button"; restore.textContent = "還原"; restore.addEventListener("click", () => restoreFromTrash(row.id, true));
     const remove = document.createElement("button"); remove.type = "button"; remove.textContent = "真正刪除"; remove.addEventListener("click", async () => { if (confirm("永久刪除這筆手機資料？此操作無法復原。")) await permanentlyDelete([row.id]); });
     actions.append(restore, remove); card.append(info, actions); $("trashList").append(card);
   }
@@ -542,8 +593,9 @@ function jsonp(url, params) {
 
 async function syncPendingToCloud() {
   const config = relayConfig();
-  if (!config.url || !config.token || !navigator.onLine) return;
-  const rows = (await getAll(STORES.transactions)).filter((row) => !row.trashed_at && (!row.cloud_received_at || (row.cloud_received_at && !row.platform_received_at)));
+  if (!config.url || !config.token) { $("cloudState").textContent = "缺少網址或配對碼"; return; }
+  if (!navigator.onLine) { $("cloudState").textContent = "目前離線，資料留在手機"; return; }
+  const rows = (await getAll(STORES.transactions)).filter((row) => (!row.trashed_at || (row.trash_reason === "manual" && row.deleted_at)) && (!row.cloud_received_at || (row.cloud_received_at && !row.platform_received_at)));
   if (!rows.length) return;
   $("cloudState").textContent = "同步中…";
   for (const row of rows) {
@@ -620,7 +672,7 @@ function initEvents() {
       event.currentTarget.value = "";
     }
   });
-  $("undoDeleteButton").addEventListener("click", () => undoRecordId && restoreFromTrash(undoRecordId));
+  $("undoDeleteButton").addEventListener("click", () => undoRecordId && restoreFromTrash(undoRecordId, false));
   $("emptyTrashButton").addEventListener("click", async () => {
     const rows = (await getAll(STORES.transactions)).filter((row) => row.trashed_at);
     if (!rows.length) return;
@@ -633,8 +685,11 @@ function initEvents() {
   $("relayTokenInput").value = localStorage.getItem(RELAY_TOKEN_KEY) || "";
   if (pairedNow) { $("cloudState").textContent = "配對完成，準備同步"; $("saveHint").textContent = "Google 中繼已配對"; }
   $("saveRelayButton").addEventListener("click", async () => {
-    localStorage.setItem(RELAY_URL_KEY, $("relayUrlInput").value.trim());
-    localStorage.setItem(RELAY_TOKEN_KEY, $("relayTokenInput").value);
+    const url = $("relayUrlInput").value.trim();
+    const token = $("relayTokenInput").value.trim();
+    if (!url || !token) { $("cloudState").textContent = `缺少${!url ? " Apps Script 網址" : ""}${!token ? " 配對碼" : ""}`; alert("Apps Script 網址與配對碼都必須填寫。"); return; }
+    localStorage.setItem(RELAY_URL_KEY, url);
+    localStorage.setItem(RELAY_TOKEN_KEY, token);
     await addSyncLog("sync_upload", "success", "Google 中繼站設定已儲存於此手機");
     await refresh();
     void syncPendingToCloud();
@@ -648,3 +703,4 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");
 refresh();
 setTimeout(syncPendingToCloud, 1500);
 setTimeout(() => cleanupPlatformCopies({ automatic: true }), 2500);
+setTimeout(resumeManualTrashFinalization, 500);
