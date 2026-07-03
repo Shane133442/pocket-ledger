@@ -1,4 +1,4 @@
-const CACHE_NAME = "pocket-ledger-v4";
+const CACHE_NAME = "pocket-ledger-v5";
 const ASSETS = [
   "./",
   "./index.html",
