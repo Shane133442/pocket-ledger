@@ -17,6 +17,7 @@
         <div>
           <p class="eyebrow">手機採集端 PWA</p>
           <h1>記帳金庫</h1>
+          <p id="appVersion" class="version-label">版本載入中…</p>
         </div>
         <button id="themeToggle" class="ghost-button" type="button" aria-label="切換亮暗色">🌙</button>
       </header>
@@ -92,7 +93,15 @@
           </label>
           <label>
             分類
-            <input id="categoryInput" name="category" placeholder="例如：餐飲、交通、收入" />
+            <select id="categoryInput" name="category"><option value="">待補齊／未分類</option></select>
+          </label>
+          <label>
+            帳戶
+            <select id="accountInput" name="account"><option value="">由付款方式帶入／待補齊</option></select>
+          </label>
+          <label>
+            付款方式
+            <select id="paymentRouteInput" name="paymentRoute"><option value="">待補齊／其他</option></select>
           </label>
           <label>
             名目 / 備註

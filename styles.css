@@ -123,6 +123,13 @@ select:focus-visible,
   letter-spacing: 0.04em;
 }
 
+.version-label {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+}
+
 .glass-card {
   margin: 0 0 1rem;
   padding: 1rem;

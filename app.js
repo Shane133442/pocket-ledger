@@ -1,10 +1,12 @@
 const DB_NAME = "pocket-ledger-mobile";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
+const APP_VERSION = "2026.07.04-1";
 const STORES = {
   transactions: "transactions",
   categories: "categories",
   syncLogs: "sync_logs",
-  cleanupReceipts: "cleanup_receipts"
+  cleanupReceipts: "cleanup_receipts",
+  referenceData: "reference_data"
 };
 const DEVICE_KEY = "pocket-ledger-device-id";
 const THEME_KEY = "pocket-ledger-theme";
@@ -25,6 +27,7 @@ let editingId = null;
 let searchQuery = "";
 let undoTimer = null;
 let undoRecordId = null;
+let syncTimer = null;
 
 function deviceId() {
   let id = localStorage.getItem(DEVICE_KEY);
@@ -53,6 +56,7 @@ function openDb() {
       }
       if (!db.objectStoreNames.contains(STORES.syncLogs)) db.createObjectStore(STORES.syncLogs, { keyPath: "id" });
       if (!db.objectStoreNames.contains(STORES.cleanupReceipts)) db.createObjectStore(STORES.cleanupReceipts, { keyPath: "record_id" });
+      if (!db.objectStoreNames.contains(STORES.referenceData)) db.createObjectStore(STORES.referenceData, { keyPath: "id" });
 
       const createdAt = nowIso();
       tx.objectStore(STORES.categories).put({ id: "default-expense", name: "待分類支出", type: "expense", created_at: createdAt, updated_at: createdAt });
@@ -114,6 +118,9 @@ function normalizeTransaction(input = {}) {
     amount: Number(input.amount || 0),
     type,
     category: String(input.category || (type === "income" ? "待分類收入" : "待分類支出")),
+    category_id: input.category_id || null,
+    account_id: input.account_id || null,
+    payment_route_id: input.payment_route_id || null,
     note: String(input.note || ""),
     date: String(input.date || todayKey()),
     created_at: String(input.created_at || timestamp),
@@ -129,7 +136,10 @@ function normalizeTransaction(input = {}) {
     cloud_received_at: input.cloud_received_at || null,
     platform_received_at: input.platform_received_at || null,
     trashed_at: input.trashed_at || null,
-    trash_reason: input.trash_reason || null
+    trash_reason: input.trash_reason || null,
+    sync_stage: ["local_saved", "sync_pending", "synced_to_google", "ready_for_import", "imported", "failed", "conflict"].includes(input.sync_stage)
+      ? input.sync_stage
+      : input.platform_received_at ? "ready_for_import" : input.cloud_received_at ? "synced_to_google" : "local_saved"
   };
 }
 
@@ -173,14 +183,21 @@ function enterKey(value) {
 }
 
 function currentFormData(amount = calculatedAmount) {
+  const type = $("typeInput").value;
+  const categoryOption = $("categoryInput").selectedOptions[0];
+  const routeOption = $("paymentRouteInput").selectedOptions[0];
   return normalizeTransaction({
     id: editingId || crypto.randomUUID(),
     amount,
-    type: $("typeInput").value,
+    type,
     date: $("dateInput").value || todayKey(),
-    category: $("categoryInput").value.trim(),
+    category: categoryOption?.dataset.name || (type === "income" ? "待分類收入" : "待分類支出"),
+    category_id: $("categoryInput").value || null,
+    account_id: $("accountInput").value || routeOption?.dataset.accountId || null,
+    payment_route_id: $("paymentRouteInput").value || null,
     note: $("noteInput").value.trim(),
-    sync_status: "pending"
+    sync_status: "pending",
+    sync_stage: "local_saved"
   });
 }
 
@@ -194,7 +211,7 @@ async function saveTransaction(detail = false) {
   const previous = editingId ? await getOne(STORES.transactions, editingId) : null;
   const transaction = detail
     ? currentFormData(amount)
-    : normalizeTransaction({ amount, type: "expense", category: "待分類支出", note: "", sync_status: "pending" });
+    : normalizeTransaction({ amount, type: "expense", category: "待分類支出", note: "", sync_status: "pending", sync_stage: "local_saved" });
 
   if (previous) {
     transaction.created_at = previous.created_at;
@@ -208,12 +225,12 @@ async function saveTransaction(detail = false) {
   }
 
   await putOne(STORES.transactions, transaction);
-  await addSyncLog("save", "success", `${transaction.type === "income" ? "收入" : "支出"} ${money(transaction.amount)} 已儲存`);
-  $("saveHint").textContent = "已儲存";
   resetEditor();
   resetCalculator();
-  await refresh();
-  void syncPendingToCloud();
+  $("saveHint").textContent = "已存入手機";
+  setTimeout(() => void addSyncLog("save", "success", `${transaction.type === "income" ? "收入" : "支出"} ${money(transaction.amount)} 已儲存`), 0);
+  setTimeout(() => void refresh(), 0);
+  queueCloudSync();
 }
 
 function resetEditor() {
@@ -222,6 +239,8 @@ function resetEditor() {
   $("typeInput").value = "expense";
   $("dateInput").value = todayKey();
   $("categoryInput").value = "";
+  $("accountInput").value = "";
+  $("paymentRouteInput").value = "";
   $("noteInput").value = "";
 }
 
@@ -233,7 +252,9 @@ async function editTransaction(id) {
   calculatedAmount = Number(item.amount || 0);
   $("typeInput").value = item.type || "expense";
   $("dateInput").value = item.date || todayKey();
-  $("categoryInput").value = item.category || "";
+  $("categoryInput").value = item.category_id || "";
+  $("accountInput").value = item.account_id || "";
+  $("paymentRouteInput").value = item.payment_route_id || "";
   $("noteInput").value = item.note || "";
   $("detailForm").hidden = false;
   renderCalculator();
@@ -360,7 +381,7 @@ function csvEscape(value) {
 
 async function exportCsv() {
   const rows = await getAll(STORES.transactions);
-  const headers = ["id", "amount", "type", "category", "note", "date", "created_at", "updated_at", "synced_at", "sync_status", "source_device", "deleted_at"];
+  const headers = ["id", "amount", "type", "category", "category_id", "account_id", "payment_route_id", "note", "date", "created_at", "updated_at", "synced_at", "sync_status", "sync_stage", "source_device", "deleted_at"];
   const csv = [headers.join(","), ...rows.map((row) => headers.map((key) => csvEscape(row[key])).join(","))].join("\n");
   downloadFile(`pocket-ledger-${todayKey()}.csv`, csv, "text/csv;charset=utf-8");
   localStorage.setItem(LAST_EXPORT_KEY, nowIso());
@@ -479,13 +500,14 @@ function renderTransactions(rows) {
   for (const row of visible) {
     const node = template.content.firstElementChild.cloneNode(true);
     const title = row.note || row.category || "名目待補";
-    const location = row.sync_status === "conflict" ? "衝突" : row.platform_received_at ? "平台" : row.cloud_received_at ? "雲端" : "手機";
+    const stageLabels = { local_saved: "手機", sync_pending: "待同步", synced_to_google: "雲端", ready_for_import: "平台待匯入", imported: "已入帳", failed: "同步失敗", conflict: "衝突" };
+    const location = stageLabels[row.sync_stage] || (row.sync_status === "conflict" ? "衝突" : row.platform_received_at ? "平台" : row.cloud_received_at ? "雲端" : "手機");
     node.querySelector(".item-meta").textContent = `${row.date}｜${row.type === "income" ? "收入" : "支出"}${row.deleted_at ? "｜已刪除" : ""}`;
     node.querySelector("h3").textContent = title;
     node.querySelector(".item-note").textContent = `${row.category || "待分類"}｜更新 ${new Date(row.updated_at).toLocaleString("zh-TW")}`;
     node.querySelector(".item-side strong").textContent = money(row.amount);
     node.querySelector(".item-side span").textContent = location;
-    node.querySelector(".item-side span").classList.add(`status-${location === "手機" ? "phone" : location === "雲端" ? "cloud" : location === "平台" ? "platform" : "conflict"}`);
+    node.querySelector(".item-side span").classList.add(`status-${["手機", "待同步"].includes(location) ? "phone" : location === "雲端" ? "cloud" : ["平台待匯入", "已入帳", "平台"].includes(location) ? "platform" : "conflict"}`);
     node.querySelector('[data-action="edit"]').addEventListener("click", () => editTransaction(row.id));
     node.querySelector('[data-action="delete"]').addEventListener("click", () => softDeleteTransaction(row.id));
     list.append(node);
@@ -548,6 +570,41 @@ function relayConfig() {
   return { url: localStorage.getItem(RELAY_URL_KEY)?.trim() || "", token: localStorage.getItem(RELAY_TOKEN_KEY) || "" };
 }
 
+function queueCloudSync(delay = 650) {
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => void syncPendingToCloud(), delay);
+}
+
+function optionMarkup(items, emptyLabel, selected = "") {
+  return `<option value="">${emptyLabel}</option>${items.map((item) => `<option value="${item.id}" data-name="${String(item.name).replaceAll('"', '&quot;')}" data-account-id="${item.accountId || ""}" ${item.id === selected ? "selected" : ""}>${item.name}</option>`).join("")}`;
+}
+
+async function renderReferenceData() {
+  const snapshot = await getOne(STORES.referenceData, "platform-settings");
+  const categories = (snapshot?.categories || []).filter((item) => item.active !== false);
+  const accounts = (snapshot?.accounts || []).filter((item) => item.active !== false);
+  const routes = (snapshot?.paymentRoutes || []).filter((item) => item.active !== false);
+  const selectedCategory = $("categoryInput").value;
+  const selectedAccount = $("accountInput").value;
+  const selectedRoute = $("paymentRouteInput").value;
+  $("categoryInput").innerHTML = optionMarkup(categories, "待補齊／未分類", selectedCategory);
+  $("accountInput").innerHTML = optionMarkup(accounts, "由付款方式帶入／待補齊", selectedAccount);
+  $("paymentRouteInput").innerHTML = optionMarkup(routes, "待補齊／其他", selectedRoute);
+}
+
+async function pullReferenceData() {
+  const config = relayConfig();
+  if (!config.url || !config.token || !navigator.onLine) return;
+  try {
+    const result = await jsonp(config.url, { action: "config", token: config.token });
+    if (!result?.ok || !result.snapshot) return;
+    await putOne(STORES.referenceData, { id: "platform-settings", ...result.snapshot, receivedAt: nowIso() });
+    await renderReferenceData();
+  } catch (error) {
+    await addSyncLog("config_download", "failed", error.message);
+  }
+}
+
 function consumePairingHash() {
   const match = location.hash.match(/^#pair=([A-Za-z0-9_-]+)$/);
   if (!match) return false;
@@ -595,7 +652,7 @@ async function syncPendingToCloud() {
   const config = relayConfig();
   if (!config.url || !config.token) { $("cloudState").textContent = "缺少網址或配對碼"; return; }
   if (!navigator.onLine) { $("cloudState").textContent = "目前離線，資料留在手機"; return; }
-  const rows = (await getAll(STORES.transactions)).filter((row) => (!row.trashed_at || (row.trash_reason === "manual" && row.deleted_at)) && (!row.cloud_received_at || (row.cloud_received_at && !row.platform_received_at)));
+  const rows = (await getAll(STORES.transactions)).filter((row) => (!row.trashed_at || (row.trash_reason === "manual" && row.deleted_at)) && row.sync_stage !== "imported");
   if (!rows.length) return;
   $("cloudState").textContent = "同步中…";
   for (const row of rows) {
@@ -604,15 +661,22 @@ async function syncPendingToCloud() {
       if (!row.cloud_received_at) {
         row.relay_event_id = eventId;
         row.sync_status = "pending";
+        row.sync_stage = "sync_pending";
         await putOne(STORES.transactions, row);
         await fetch(config.url, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "push", token: config.token, event: { event_id: eventId, record_id: row.id, device_id: row.source_device, revision: row.revision, base_revision: row.base_revision, updated_at: row.updated_at, payload: row } }) });
       }
       const receipt = await jsonp(config.url, { action: "receipt", token: config.token, event_id: eventId });
-      if (receipt?.cloud_received_at) { row.cloud_received_at = receipt.cloud_received_at; row.synced_at = receipt.cloud_received_at; row.sync_status = receipt.platform_received_at ? "synced" : "pending"; }
-      if (receipt?.platform_received_at) { row.platform_received_at = receipt.platform_received_at; row.sync_status = receipt.sync_status === "conflict" ? "conflict" : "synced"; }
+      if (receipt?.cloud_received_at) { row.cloud_received_at = receipt.cloud_received_at; row.synced_at = receipt.cloud_received_at; row.sync_status = receipt.platform_received_at ? "synced" : "pending"; row.sync_stage = "synced_to_google"; }
+      if (receipt?.platform_received_at) {
+        row.platform_received_at = receipt.platform_received_at;
+        const remoteStage = receipt.sync_status;
+        row.sync_status = remoteStage === "conflict" ? "conflict" : "synced";
+        row.sync_stage = ["ready_for_import", "imported", "failed", "conflict"].includes(remoteStage) ? remoteStage : "ready_for_import";
+      }
       await putOne(STORES.transactions, row);
-    } catch (error) { await addSyncLog("sync_upload", "failed", `${row.id}: ${error.message}`); }
+    } catch (error) { row.sync_stage = "failed"; row.sync_status = "failed"; await putOne(STORES.transactions, row); await addSyncLog("sync_upload", "failed", `${row.id}: ${error.message}`); }
   }
+  await pullReferenceData();
   await refresh();
   await cleanupPlatformCopies({ automatic: true });
 }
@@ -627,6 +691,7 @@ function applyTheme(theme) {
 function initEvents() {
   const pairedNow = consumePairingHash();
   $("dateInput").value = todayKey();
+  $("appVersion").textContent = `版本 ${APP_VERSION}`;
   applyTheme(localStorage.getItem(THEME_KEY) || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
 
   $("themeToggle").addEventListener("click", () => applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
@@ -695,12 +760,17 @@ function initEvents() {
     void syncPendingToCloud();
   });
   $("syncNowButton").addEventListener("click", syncPendingToCloud);
-  window.addEventListener("online", syncPendingToCloud);
+  $("paymentRouteInput").addEventListener("change", (event) => {
+    const accountId = event.currentTarget.selectedOptions[0]?.dataset.accountId;
+    if (accountId) $("accountInput").value = accountId;
+  });
+  window.addEventListener("online", () => queueCloudSync(100));
 }
 
 initEvents();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");
+renderReferenceData();
 refresh();
-setTimeout(syncPendingToCloud, 1500);
+setTimeout(() => queueCloudSync(0), 1500);
 setTimeout(() => cleanupPlatformCopies({ automatic: true }), 2500);
 setTimeout(resumeManualTrashFinalization, 500);
