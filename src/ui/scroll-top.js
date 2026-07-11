@@ -43,6 +43,9 @@ export function initScrollTopButton({ getCurrentPage, onNavigate }) {
     onNavigate(page);
     setMenuVisibility();
   };
+  const suppressNativeTouchUi = (event) => {
+    event.preventDefault();
+  };
 
   const observer = new IntersectionObserver(([entry]) => {
     captureVisible = entry.isIntersecting;
@@ -51,15 +54,18 @@ export function initScrollTopButton({ getCurrentPage, onNavigate }) {
   observer.observe(capture);
 
   main.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
     didLongPress = false;
     main.setPointerCapture(event.pointerId);
     pressTimer = window.setTimeout(open, 330);
   });
   main.addEventListener("pointermove", (event) => {
+    event.preventDefault();
     if (!isOpen) return;
     highlight(itemAtPoint(event.clientX, event.clientY));
   });
   main.addEventListener("pointerup", (event) => {
+    event.preventDefault();
     window.clearTimeout(pressTimer);
     if (isOpen) {
       const selected = target || itemAtPoint(event.clientX, event.clientY);
@@ -73,7 +79,17 @@ export function initScrollTopButton({ getCurrentPage, onNavigate }) {
     window.clearTimeout(pressTimer);
     close();
   });
-  items.forEach((item) => item.addEventListener("click", () => navigate(item.dataset.pageTab)));
+  main.addEventListener("contextmenu", suppressNativeTouchUi);
+  menu.addEventListener("contextmenu", suppressNativeTouchUi);
+  menu.addEventListener("selectstart", suppressNativeTouchUi);
+  menu.addEventListener("touchstart", suppressNativeTouchUi, { passive: false });
+  items.forEach((item) => {
+    item.addEventListener("click", (event) => {
+      event.preventDefault();
+      navigate(item.dataset.pageTab);
+    });
+    item.addEventListener("contextmenu", suppressNativeTouchUi);
+  });
   backdrop.addEventListener("click", close);
   setMenuVisibility();
 }

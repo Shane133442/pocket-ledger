@@ -120,6 +120,7 @@ async function saveTransaction(detail = false, quickOverrides = {}) {
 
 function resetEditor() {
   editingId = null;
+  $("detailDialog").hidden = true;
   $("detailForm").hidden = true;
   $("typeInput").value = "expense";
   $("dateInput").value = todayKey();
@@ -141,6 +142,7 @@ async function editTransaction(id) {
   $("accountInput").value = item.account_id || "";
   $("paymentRouteInput").value = item.payment_route_id || "";
   $("noteInput").value = item.note || "";
+  $("detailDialog").hidden = false;
   $("detailForm").hidden = false;
   renderCalculator();
   $("noteInput").focus();
@@ -478,6 +480,7 @@ async function refresh() {
 }
 
 function openDetailEditor() {
+  $("detailDialog").hidden = false;
   $("detailForm").hidden = false;
   $("noteInput").focus();
 }
@@ -489,13 +492,13 @@ function closeVoiceDialog() {
   }
   $("voiceDialog").hidden = true;
   $("voiceStatus").textContent = "準備聆聽";
-  $("voiceIndicator").dataset.state = "idle";
+  $("voiceRecordButton").dataset.state = "idle";
 }
 
 function startVoiceRecognition() {
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!Recognition) {
-    $("voiceIndicator").dataset.state = "failed";
+    $("voiceRecordButton").dataset.state = "failed";
     $("voiceStatus").textContent = "此瀏覽器未提供語音辨識，可直接輸入名目。";
     $("voiceNoteInput").focus();
     return;
@@ -508,41 +511,48 @@ function startVoiceRecognition() {
   voiceRecognition.interimResults = false;
   voiceRecognition.maxAlternatives = 1;
   voiceRecognition.onstart = () => {
-    $("voiceIndicator").dataset.state = "recording";
+    $("voiceRecordButton").dataset.state = "recording";
     $("voiceStatus").textContent = "正在錄音…";
   };
   voiceRecognition.onspeechend = () => {
-    $("voiceIndicator").dataset.state = "processing";
+    $("voiceRecordButton").dataset.state = "processing";
     $("voiceStatus").textContent = "辨識語音中…";
   };
   voiceRecognition.onresult = (event) => {
-    $("voiceIndicator").dataset.state = "done";
+    $("voiceRecordButton").dataset.state = "done";
     $("voiceNoteInput").value = event.results[0][0].transcript.trim();
     $("voiceStatus").textContent = "辨識完成，可以編輯後儲存。";
     $("voiceNoteInput").focus();
     $("voiceNoteInput").select();
   };
   voiceRecognition.onerror = () => {
-    $("voiceIndicator").dataset.state = "failed";
-    $("voiceStatus").textContent = "沒有辨識成功，可以重新錄音或直接輸入。";
+    $("voiceRecordButton").dataset.state = "failed";
+    $("voiceStatus").textContent = "沒有辨識成功，可以再按語音輸入或直接輸入。";
     $("voiceNoteInput").focus();
   };
   voiceRecognition.onend = () => {
     voiceRecognition = null;
-    if (!$("voiceNoteInput").value.trim() && ["recording", "processing"].includes($("voiceIndicator").dataset.state)) {
-      $("voiceIndicator").dataset.state = "failed";
-      $("voiceStatus").textContent = "沒有收到語音，可以重新錄音或直接輸入。";
+    if (!$("voiceNoteInput").value.trim() && ["recording", "processing"].includes($("voiceRecordButton").dataset.state)) {
+      $("voiceRecordButton").dataset.state = "failed";
+      $("voiceStatus").textContent = "沒有收到語音，可以再按語音輸入或直接輸入。";
     }
   };
-  voiceRecognition.start();
+  try {
+    $("voiceRecordButton").dataset.state = "recording";
+    $("voiceStatus").textContent = "準備收音…";
+    voiceRecognition.start();
+  } catch {
+    $("voiceRecordButton").dataset.state = "failed";
+    $("voiceStatus").textContent = "語音啟動失敗，請再按一次語音輸入，或直接輸入名目。";
+    voiceRecognition = null;
+  }
 }
 
 function openVoiceCapture() {
   $("voiceDialog").hidden = false;
   $("voiceNoteInput").value = "";
-  $("voiceStatus").textContent = "準備聆聽";
-  $("voiceIndicator").dataset.state = "idle";
-  startVoiceRecognition();
+  $("voiceStatus").textContent = "按下麥克風或「語音輸入」開始收音，也可以直接打字。";
+  $("voiceRecordButton").dataset.state = "idle";
 }
 
 function activatePage(page) {
@@ -690,10 +700,11 @@ function initEvents() {
   });
   document.querySelectorAll("[data-capture-type]").forEach((button) => button.addEventListener("click", () => { quickType = button.dataset.captureType; setCaptureType(quickType); }));
   $("cancelVoiceButton").addEventListener("click", closeVoiceDialog);
+  $("voiceRecordButton").addEventListener("click", startVoiceRecognition);
   $("retryVoiceButton").addEventListener("click", startVoiceRecognition);
   $("voiceNoteInput").addEventListener("input", () => {
-    $("voiceIndicator").dataset.state = $("voiceNoteInput").value.trim() ? "done" : "idle";
-    $("voiceStatus").textContent = $("voiceNoteInput").value.trim() ? "可以編輯後儲存。" : "可直接輸入名目，或重新錄音。";
+    $("voiceRecordButton").dataset.state = $("voiceNoteInput").value.trim() ? "done" : "idle";
+    $("voiceStatus").textContent = $("voiceNoteInput").value.trim() ? "可以編輯後儲存。" : "可直接輸入名目，或按語音輸入。";
   });
   $("confirmVoiceButton").addEventListener("click", async () => {
     const note = $("voiceNoteInput").value.trim();
