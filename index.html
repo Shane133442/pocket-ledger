@@ -22,7 +22,8 @@
       </header>
 
       <section id="captureStart" class="spendable-strip glass-card" aria-live="polite">
-        <span>本月估計尚可花費</span>
+        <span class="status-dot" aria-hidden="true"></span>
+        <span class="spendable-label">本月估計尚可花費</span>
         <strong id="spendableAmount">等待平台額度快照</strong>
         <small id="spendableMeta">同步平台後即可離線查看</small>
       </section>
@@ -37,44 +38,44 @@
         </div>
 
         <div class="type-switch" aria-label="收支類型">
-          <button type="button" data-capture-type="expense" class="is-selected" aria-pressed="true">支出</button>
           <button type="button" data-capture-type="income" aria-pressed="false">收入</button>
+          <button type="button" data-capture-type="expense" class="is-selected" aria-pressed="true">支出</button>
         </div>
 
         <div class="display">
           <small id="formula">輸入金額</small>
           <output id="amountDisplay">0</output>
+          <button id="clearButton" class="display-clear" type="button" aria-label="清除金額">×</button>
+          <div class="operator-strip" aria-label="運算符號">
+            <button type="button" data-key="+">＋</button>
+            <button type="button" data-key="-">－</button>
+            <button type="button" data-key="*">×</button>
+            <button type="button" data-key="/">÷</button>
+          </div>
         </div>
 
         <div class="keypad" aria-label="金額小鍵盤">
           <button type="button" data-key="7">7</button>
           <button type="button" data-key="8">8</button>
           <button type="button" data-key="9">9</button>
-          <button type="button" data-key="+">＋</button>
+          <button id="backspaceButton" class="icon-key" type="button" aria-label="退一格">⌫</button>
           <button type="button" data-key="4">4</button>
           <button type="button" data-key="5">5</button>
           <button type="button" data-key="6">6</button>
-          <button type="button" data-key="-">－</button>
+          <button id="equalsButton" class="accent-button enter-key" type="button">＝</button>
           <button type="button" data-key="1">1</button>
           <button type="button" data-key="2">2</button>
           <button type="button" data-key="3">3</button>
-          <button type="button" data-key="*">×</button>
           <button type="button" data-key="0">0</button>
           <button type="button" data-key="00">00</button>
           <button type="button" data-key=".">.</button>
-          <button type="button" data-key="/">÷</button>
         </div>
 
-        <div class="calc-actions">
-          <button id="clearButton" type="button">清除</button>
-          <button id="backspaceButton" type="button">退一格</button>
-          <button id="equalsButton" class="accent-button" type="button">＝</button>
-        </div>
-
+        <p class="rail-hint">左右滑動選功能，中間直接儲存</p>
         <div id="actionRail" class="action-rail" aria-label="向左滑編輯、點按儲存、向右滑語音">
-          <button id="railEditButton" class="rail-side rail-left" type="button">編輯</button>
-          <button id="actionThumb" class="primary-button rail-thumb" type="button">儲存</button>
-          <button id="railVoiceButton" class="rail-side rail-right" type="button">語音</button>
+          <button id="railEditButton" class="rail-side rail-left" type="button"><span>編輯</span><small>完整資料</small></button>
+          <button id="actionThumb" class="primary-button rail-thumb" type="button"><span>儲存</span><small>直接存</small></button>
+          <button id="railVoiceButton" class="rail-side rail-right" type="button"><span>語音</span><small>只收名目</small></button>
         </div>
 
         <div class="recent-captures">
