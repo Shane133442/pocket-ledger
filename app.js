@@ -30,6 +30,7 @@ let undoTimer = null;
 let undoRecordId = null;
 let queueCloudSync = () => {};
 let quickType = "expense";
+let voiceRecognition = null;
 
 function deviceId() {
   let id = localStorage.getItem(DEVICE_KEY);
@@ -378,6 +379,47 @@ function renderTransactions(rows) {
   }
 }
 
+function renderCloudTransactions(rows) {
+  const list = $("cloudTransactionList");
+  const cloudRows = rows
+    .filter((row) => !row.trashed_at)
+    .filter((row) => row.cloud_received_at || row.platform_received_at || ["synced_to_google", "ready_for_import", "imported", "conflict", "failed"].includes(row.sync_stage))
+    .sort((a, b) => String(b.cloud_received_at || b.updated_at).localeCompare(String(a.cloud_received_at || a.updated_at)));
+  const imported = cloudRows.filter((row) => row.sync_stage === "imported").length;
+  const waiting = cloudRows.filter((row) => row.sync_stage === "ready_for_import" || (row.cloud_received_at && !row.platform_received_at)).length;
+  $("vaultSummary").textContent = `雲端 ${cloudRows.length}｜待平台 ${waiting}｜已入帳 ${imported}`;
+  list.innerHTML = "";
+  if (!cloudRows.length) {
+    list.innerHTML = '<p class="empty-state">目前沒有已送到雲端的資料。</p>';
+    return;
+  }
+  for (const row of cloudRows) {
+    const card = document.createElement("article");
+    card.className = "transaction-item";
+    const info = document.createElement("div");
+    const meta = document.createElement("p");
+    meta.className = "item-meta";
+    meta.textContent = `${row.date}｜${row.type === "income" ? "收入" : "支出"}`;
+    const title = document.createElement("h3");
+    title.textContent = row.note || row.category || "名目待補";
+    const note = document.createElement("p");
+    note.className = "item-note";
+    const received = row.platform_received_at || row.cloud_received_at || row.updated_at;
+    note.textContent = `${row.category || "待分類"}｜同步 ${new Date(received).toLocaleString("zh-TW")}`;
+    info.append(meta, title, note);
+    const side = document.createElement("div");
+    side.className = "item-side";
+    const amount = document.createElement("strong");
+    amount.textContent = money(row.amount);
+    const status = document.createElement("span");
+    status.textContent = row.sync_stage === "imported" ? "已入帳" : row.platform_received_at ? "平台待匯入" : row.sync_stage === "failed" ? "同步失敗" : row.sync_stage === "conflict" ? "衝突" : "雲端";
+    status.classList.add(`status-${["已入帳", "平台待匯入"].includes(status.textContent) ? "platform" : status.textContent === "雲端" ? "cloud" : "conflict"}`);
+    side.append(amount, status);
+    card.append(info, side);
+    list.append(card);
+  }
+}
+
 function renderTrash(rows) {
   const trashed = rows.filter((row) => row.trashed_at).sort((a, b) => String(b.trashed_at).localeCompare(String(a.trashed_at)));
   $("trashCount").textContent = String(trashed.length);
@@ -425,6 +467,7 @@ async function refresh() {
   const lastImport = localStorage.getItem(LAST_IMPORT_KEY);
   $("syncSummary").textContent = lastExport ? `上次匯出 ${new Date(lastExport).toLocaleString("zh-TW")}` : (lastImport ? "最近有匯入" : "尚未同步");
   renderTransactions(rows);
+  renderCloudTransactions(rows);
   renderRecentView(rows, { onEdit: editTransaction, onDelete: softDeleteTransaction });
   renderTrash(rows);
   renderSyncLogs(logs);
@@ -439,21 +482,79 @@ function openDetailEditor() {
 }
 
 function closeVoiceDialog() {
+  if (voiceRecognition) {
+    try { voiceRecognition.abort(); } catch {}
+    voiceRecognition = null;
+  }
   $("voiceDialog").hidden = true;
   $("voiceStatus").textContent = "準備聆聽";
+  $("voiceIndicator").dataset.state = "idle";
+}
+
+function startVoiceRecognition() {
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Recognition) {
+    $("voiceIndicator").dataset.state = "failed";
+    $("voiceStatus").textContent = "此瀏覽器未提供語音辨識，可直接輸入名目。";
+    $("voiceNoteInput").focus();
+    return;
+  }
+  if (voiceRecognition) {
+    try { voiceRecognition.abort(); } catch {}
+  }
+  voiceRecognition = new Recognition();
+  voiceRecognition.lang = "zh-TW";
+  voiceRecognition.interimResults = false;
+  voiceRecognition.maxAlternatives = 1;
+  voiceRecognition.onstart = () => {
+    $("voiceIndicator").dataset.state = "recording";
+    $("voiceStatus").textContent = "正在錄音…";
+  };
+  voiceRecognition.onspeechend = () => {
+    $("voiceIndicator").dataset.state = "processing";
+    $("voiceStatus").textContent = "辨識語音中…";
+  };
+  voiceRecognition.onresult = (event) => {
+    $("voiceIndicator").dataset.state = "done";
+    $("voiceNoteInput").value = event.results[0][0].transcript.trim();
+    $("voiceStatus").textContent = "辨識完成，可以編輯後儲存。";
+    $("voiceNoteInput").focus();
+    $("voiceNoteInput").select();
+  };
+  voiceRecognition.onerror = () => {
+    $("voiceIndicator").dataset.state = "failed";
+    $("voiceStatus").textContent = "沒有辨識成功，可以重新錄音或直接輸入。";
+    $("voiceNoteInput").focus();
+  };
+  voiceRecognition.onend = () => {
+    voiceRecognition = null;
+    if (!$("voiceNoteInput").value.trim() && ["recording", "processing"].includes($("voiceIndicator").dataset.state)) {
+      $("voiceIndicator").dataset.state = "failed";
+      $("voiceStatus").textContent = "沒有收到語音，可以重新錄音或直接輸入。";
+    }
+  };
+  voiceRecognition.start();
 }
 
 function openVoiceCapture() {
   $("voiceDialog").hidden = false;
   $("voiceNoteInput").value = "";
-  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!Recognition) { $("voiceStatus").textContent = "此瀏覽器未提供語音辨識，可直接輸入名目。"; $("voiceNoteInput").focus(); return; }
-  const recognition = new Recognition();
-  recognition.lang = "zh-TW"; recognition.interimResults = false; recognition.maxAlternatives = 1;
-  recognition.onstart = () => { $("voiceStatus").textContent = "正在聆聽…"; };
-  recognition.onresult = (event) => { $("voiceNoteInput").value = event.results[0][0].transcript.trim(); $("voiceStatus").textContent = "請確認名目，確認後會直接存入手機。"; };
-  recognition.onerror = () => { $("voiceStatus").textContent = "沒有辨識成功，可以重試或直接輸入。"; $("voiceNoteInput").focus(); };
-  recognition.start();
+  $("voiceStatus").textContent = "準備聆聽";
+  $("voiceIndicator").dataset.state = "idle";
+  startVoiceRecognition();
+}
+
+function activatePage(page) {
+  document.querySelectorAll("[data-page]").forEach((section) => {
+    section.hidden = section.dataset.page !== page;
+    section.classList.toggle("is-active", section.dataset.page === page);
+  });
+  document.querySelectorAll("[data-page-tab]").forEach((button) => {
+    const selected = button.dataset.pageTab === page;
+    button.classList.toggle("is-selected", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
+  if (page === "capture") $("captureStart").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function relayConfig() {
@@ -570,6 +671,7 @@ function initEvents() {
   initActionRail({ onEdit: openDetailEditor, onSave: () => saveTransaction(false), onVoice: openVoiceCapture });
 
   $("themeToggle").addEventListener("click", () => applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
+  document.querySelectorAll("[data-page-tab]").forEach((button) => button.addEventListener("click", () => activatePage(button.dataset.pageTab)));
   document.querySelectorAll("[data-key]").forEach((button) => button.addEventListener("click", () => enterKey(button.dataset.key)));
   $("clearButton").addEventListener("click", resetCalculator);
   $("backspaceButton").addEventListener("click", () => {
@@ -586,6 +688,11 @@ function initEvents() {
   });
   document.querySelectorAll("[data-capture-type]").forEach((button) => button.addEventListener("click", () => { quickType = button.dataset.captureType; setCaptureType(quickType); }));
   $("cancelVoiceButton").addEventListener("click", closeVoiceDialog);
+  $("retryVoiceButton").addEventListener("click", startVoiceRecognition);
+  $("voiceNoteInput").addEventListener("input", () => {
+    $("voiceIndicator").dataset.state = $("voiceNoteInput").value.trim() ? "done" : "idle";
+    $("voiceStatus").textContent = $("voiceNoteInput").value.trim() ? "可以編輯後儲存。" : "可直接輸入名目，或重新錄音。";
+  });
   $("confirmVoiceButton").addEventListener("click", async () => {
     const note = $("voiceNoteInput").value.trim();
     if (!note) { $("voiceStatus").textContent = "請先說出或輸入名目。"; return; }

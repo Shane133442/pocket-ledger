@@ -131,6 +131,27 @@ select:focus-visible,
 }
 
 .app-footer { padding: 1rem 0 0; text-align: center; }
+.page-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: .25rem;
+  padding: .25rem;
+  border-radius: 999px;
+}
+.page-tabs button {
+  min-height: 2.45rem;
+  padding: .45rem .35rem;
+  border-radius: 999px;
+  box-shadow: none;
+  font-size: .88rem;
+  font-weight: 800;
+}
+.page-tabs button.is-selected {
+  border-color: var(--gold);
+  background: linear-gradient(145deg, #ffdf6c, var(--gold));
+  color: #2b1a00;
+}
+.app-page[hidden] { display: none; }
 .spendable-strip {
   min-height: 5vh;
   display: grid;
@@ -179,6 +200,45 @@ select:focus-visible,
 .modal-layer[hidden] { display: none; }
 .modal-card { width: min(100%, 520px); padding: 1rem; border: 1px solid var(--line); border-radius: 24px; background: var(--surface-strong); box-shadow: var(--shadow); }
 .modal-card h2 { margin-top: 0; }
+.voice-indicator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: .45rem;
+  min-height: 3rem;
+  margin: .35rem 0 .85rem;
+}
+.voice-indicator span {
+  width: .85rem;
+  height: .85rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--gold), transparent 12%);
+  opacity: .42;
+  transform: scale(.85);
+}
+.voice-indicator[data-state="recording"] span,
+.voice-indicator[data-state="processing"] span {
+  animation: voicePulse .9s ease-in-out infinite;
+}
+.voice-indicator[data-state="processing"] span {
+  background: color-mix(in srgb, var(--blue), var(--gold) 22%);
+}
+.voice-indicator[data-state="done"] span {
+  opacity: 1;
+  transform: scale(1);
+  background: #55c47b;
+}
+.voice-indicator[data-state="failed"] span {
+  opacity: 1;
+  background: var(--danger);
+}
+.voice-indicator span:nth-child(2) { animation-delay: .12s; }
+.voice-indicator span:nth-child(3) { animation-delay: .24s; }
+
+@keyframes voicePulse {
+  0%, 100% { opacity: .36; transform: scale(.82); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
 
 .glass-card {
   margin: 0 0 1rem;
@@ -245,34 +305,21 @@ select:focus-visible,
 
 .display-clear {
   position: absolute;
-  top: .65rem;
-  right: .65rem;
+  top: 50%;
+  right: .8rem;
   display: grid;
   place-items: center;
-  width: 2rem;
-  height: 2rem;
+  width: 2.5rem;
+  height: 2.5rem;
   min-height: 0;
   padding: 0;
   border-radius: 999px;
   color: var(--muted);
+  font-size: 1.35rem;
+  transform: translateY(-50%);
 }
-
-.operator-strip {
-  position: absolute;
-  right: .65rem;
-  bottom: .65rem;
-  display: flex;
-  gap: .35rem;
-}
-
-.operator-strip button {
-  width: 2rem;
-  height: 2rem;
-  min-height: 0;
-  padding: 0;
-  border-radius: 999px;
-  color: color-mix(in srgb, var(--text), var(--gold-dark) 22%);
-  font-weight: 800;
+.display-clear:active {
+  transform: translateY(-50%) scale(.99);
 }
 
 .keypad {
@@ -288,11 +335,7 @@ select:focus-visible,
   font-weight: 800;
 }
 
-.keypad .enter-key {
-  grid-row: span 3;
-  min-height: auto;
-  font-size: 2rem;
-}
+.keypad .operator-key { color: color-mix(in srgb, var(--text), var(--gold-dark) 28%); }
 
 .calc-actions,
 .form-actions,
@@ -502,8 +545,18 @@ summary {
     font-size: .66rem;
   }
 
+  .page-tabs {
+    margin-bottom: .55rem;
+    padding: .2rem;
+  }
+
+  .page-tabs button {
+    min-height: 2.35rem;
+    font-size: .82rem;
+  }
+
   .calculator-card {
-    min-height: calc(100svh - max(.55rem, env(safe-area-inset-top)) - max(1.25rem, env(safe-area-inset-bottom)) - 3.55rem);
+    min-height: calc(100svh - max(.55rem, env(safe-area-inset-top)) - max(1.25rem, env(safe-area-inset-bottom)) - 6.45rem);
     display: grid;
     grid-template-rows: auto auto minmax(0, .92fr) auto auto;
     align-content: start;
@@ -560,10 +613,8 @@ summary {
     font-size: clamp(1.35rem, 4.8svh, 1.85rem);
   }
 
-  .keypad .enter-key {
-    grid-column: 4;
-    grid-row: 2 / 5;
-  }
+  .keypad .operator-key,
+  .keypad .accent-button { font-size: clamp(1.45rem, 5svh, 1.95rem); }
 
   .rail-hint {
     margin: .1rem 0 0;
