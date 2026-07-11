@@ -17,24 +17,14 @@
         <div>
           <p class="eyebrow">手機採集端 PWA</p>
           <h1>記帳金庫</h1>
-          <p id="appVersion" class="version-label">版本載入中…</p>
         </div>
         <button id="themeToggle" class="ghost-button" type="button" aria-label="切換亮暗色">🌙</button>
       </header>
 
-      <section class="status-card glass-card">
-        <div>
-          <p class="label">今日快速記帳</p>
-          <strong id="todayTotal">0 元</strong>
-        </div>
-        <div>
-          <p class="label">待匯出</p>
-          <strong id="pendingCount">0 筆</strong>
-        </div>
-        <div>
-          <p class="label">資料位置</p>
-          <strong>本機 IndexedDB</strong>
-        </div>
+      <section id="captureStart" class="spendable-strip glass-card" aria-live="polite">
+        <span>本月估計尚可花費</span>
+        <strong id="spendableAmount">等待平台額度快照</strong>
+        <small id="spendableMeta">同步平台後即可離線查看</small>
       </section>
 
       <section class="calculator-card glass-card" aria-labelledby="quickCaptureTitle">
@@ -44,6 +34,11 @@
             <h2 id="quickCaptureTitle">快速記帳</h2>
           </div>
           <span id="saveHint" class="save-hint">離線可用</span>
+        </div>
+
+        <div class="type-switch" aria-label="收支類型">
+          <button type="button" data-capture-type="expense" class="is-selected" aria-pressed="true">支出</button>
+          <button type="button" data-capture-type="income" aria-pressed="false">收入</button>
         </div>
 
         <div class="display">
@@ -76,8 +71,16 @@
           <button id="equalsButton" class="accent-button" type="button">＝</button>
         </div>
 
-        <button id="quickSaveButton" class="primary-button" type="button">快速記帳即可</button>
-        <button id="openDetailButton" class="secondary-button" type="button">補名目與分類</button>
+        <div id="actionRail" class="action-rail" aria-label="向左滑編輯、點按儲存、向右滑語音">
+          <button id="railEditButton" class="rail-side rail-left" type="button">編輯</button>
+          <button id="actionThumb" class="primary-button rail-thumb" type="button">儲存</button>
+          <button id="railVoiceButton" class="rail-side rail-right" type="button">語音</button>
+        </div>
+
+        <div class="recent-captures">
+          <p class="label">最近三筆</p>
+          <div id="recentTransactionList" class="recent-list" aria-live="polite"></div>
+        </div>
 
         <form id="detailForm" class="detail-form" hidden>
           <label>
@@ -112,6 +115,12 @@
             <button class="primary-button" type="submit">儲存資料</button>
           </div>
         </form>
+      </section>
+
+      <section class="status-card glass-card compact-status">
+        <div><p class="label">今日支出</p><strong id="todayTotal">0 元</strong></div>
+        <div><p class="label">等待同步</p><strong id="pendingCount">0 筆</strong></div>
+        <div><p class="label">資料位置</p><strong>手機</strong></div>
       </section>
 
       <section class="glass-card">
@@ -168,7 +177,23 @@
         </details>
         <div id="syncLogList" class="sync-log-list"></div>
       </section>
+      <footer class="app-footer"><p id="appVersion" class="version-label">版本載入中…</p></footer>
     </main>
+
+    <button id="scrollTopButton" class="scroll-top-button" type="button" hidden aria-label="回到快速記帳">↑ 記帳</button>
+
+    <div id="voiceDialog" class="modal-layer" hidden>
+      <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="voiceTitle">
+        <p class="label">語音只會填入名目</p>
+        <h2 id="voiceTitle">確認名目</h2>
+        <input id="voiceNoteInput" type="text" placeholder="請說出或輸入消費名目" />
+        <p id="voiceStatus" class="notice">準備聆聽</p>
+        <div class="form-actions">
+          <button id="cancelVoiceButton" type="button">取消</button>
+          <button id="confirmVoiceButton" class="primary-button" type="button">確認並儲存</button>
+        </div>
+      </section>
+    </div>
 
     <div id="undoToast" class="undo-toast" role="status" aria-live="polite" hidden>
       <span>已移入垃圾桶</span><button id="undoDeleteButton" type="button">Undo</button>

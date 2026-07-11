@@ -1,11 +1,25 @@
-const CACHE_NAME = "pocket-ledger-v6";
+const CACHE_NAME = "pocket-ledger-v7";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
   "./manifest.webmanifest",
-  "./icon.svg"
+  "./icon.svg",
+  "./src/calculator.js",
+  "./src/cloud-state.js",
+  "./src/config.js",
+  "./src/export-import.js",
+  "./src/spendable.js",
+  "./src/storage.js",
+  "./src/sync-google.js",
+  "./src/sync-queue.js",
+  "./src/transactions.js",
+  "./src/trash.js",
+  "./src/ui/action-rail.js",
+  "./src/ui/capture-view.js",
+  "./src/ui/recent-view.js",
+  "./src/ui/scroll-top.js"
 ];
 
 self.addEventListener("install", (event) => {

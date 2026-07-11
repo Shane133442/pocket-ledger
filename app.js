@@ -1,33 +1,35 @@
-const DB_NAME = "pocket-ledger-mobile";
-const DB_VERSION = 3;
-const APP_VERSION = "2026.07.04-1";
-const STORES = {
-  transactions: "transactions",
-  categories: "categories",
-  syncLogs: "sync_logs",
-  cleanupReceipts: "cleanup_receipts",
-  referenceData: "reference_data"
-};
-const DEVICE_KEY = "pocket-ledger-device-id";
-const THEME_KEY = "pocket-ledger-theme";
-const LAST_EXPORT_KEY = "pocket-ledger-last-export";
-const LAST_IMPORT_KEY = "pocket-ledger-last-import";
-const RELAY_URL_KEY = "pocket-ledger-relay-url";
-const RELAY_TOKEN_KEY = "pocket-ledger-relay-token";
-const AUTO_CLEANUP_KEY = "pocket-ledger-auto-cleanup-7-days";
+import { APP_VERSION, STORES, STORAGE_KEYS } from "./src/config.js";
+import { calculateFormula, nextFormulaForKey } from "./src/calculator.js";
+import { buildCsv, downloadFile } from "./src/export-import.js";
+import { deleteOne, getAll, getOne, nowIso, putOne, todayKey } from "./src/storage.js";
+import { jsonp } from "./src/sync-google.js";
+import { createDebouncedQueue } from "./src/sync-queue.js";
+import { normalizeTransaction } from "./src/transactions.js";
+import { approximateBytes as estimateRowsBytes, autoCleanupEnabled as isAutoCleanupEnabled, cleanupCandidates as findCleanupCandidates, formatBytes as formatByteSize } from "./src/trash.js";
+import { calculateSpendable } from "./src/spendable.js";
+import { initActionRail } from "./src/ui/action-rail.js";
+import { renderCalculatorView, renderSpendableView, setCaptureType } from "./src/ui/capture-view.js";
+import { initScrollTopButton } from "./src/ui/scroll-top.js";
+import { renderRecentView } from "./src/ui/recent-view.js";
+
+const DEVICE_KEY = STORAGE_KEYS.device;
+const THEME_KEY = STORAGE_KEYS.theme;
+const LAST_EXPORT_KEY = STORAGE_KEYS.lastExport;
+const LAST_IMPORT_KEY = STORAGE_KEYS.lastImport;
+const RELAY_URL_KEY = STORAGE_KEYS.relayUrl;
+const RELAY_TOKEN_KEY = STORAGE_KEYS.relayToken;
+const AUTO_CLEANUP_KEY = STORAGE_KEYS.autoCleanup;
 
 const $ = (id) => document.getElementById(id);
 const money = (value) => `${Number(value || 0).toLocaleString("zh-TW", { maximumFractionDigits: 2 })} 元`;
-const nowIso = () => new Date().toISOString();
-const todayKey = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
-
 let formula = "";
 let calculatedAmount = 0;
 let editingId = null;
 let searchQuery = "";
 let undoTimer = null;
 let undoRecordId = null;
-let syncTimer = null;
+let queueCloudSync = () => {};
+let quickType = "expense";
 
 function deviceId() {
   let id = localStorage.getItem(DEVICE_KEY);
@@ -38,127 +40,18 @@ function deviceId() {
   return id;
 }
 
-function openDb() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      const tx = request.transaction;
-      if (!db.objectStoreNames.contains(STORES.transactions)) {
-        const store = db.createObjectStore(STORES.transactions, { keyPath: "id" });
-        store.createIndex("updated_at", "updated_at");
-        store.createIndex("sync_status", "sync_status");
-        store.createIndex("date", "date");
-      }
-      if (!db.objectStoreNames.contains(STORES.categories)) {
-        const store = db.createObjectStore(STORES.categories, { keyPath: "id" });
-        store.createIndex("type", "type");
-      }
-      if (!db.objectStoreNames.contains(STORES.syncLogs)) db.createObjectStore(STORES.syncLogs, { keyPath: "id" });
-      if (!db.objectStoreNames.contains(STORES.cleanupReceipts)) db.createObjectStore(STORES.cleanupReceipts, { keyPath: "record_id" });
-      if (!db.objectStoreNames.contains(STORES.referenceData)) db.createObjectStore(STORES.referenceData, { keyPath: "id" });
-
-      const createdAt = nowIso();
-      tx.objectStore(STORES.categories).put({ id: "default-expense", name: "待分類支出", type: "expense", created_at: createdAt, updated_at: createdAt });
-      tx.objectStore(STORES.categories).put({ id: "default-income", name: "待分類收入", type: "income", created_at: createdAt, updated_at: createdAt });
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-async function withStore(storeName, mode, callback) {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, mode);
-    const store = tx.objectStore(storeName);
-    const result = callback(store);
-    tx.oncomplete = () => resolve(result);
-    tx.onerror = () => reject(tx.error);
-  });
-}
-
-async function getAll(storeName) {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, "readonly");
-    const request = tx.objectStore(storeName).getAll();
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-async function getOne(storeName, id) {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, "readonly");
-    const request = tx.objectStore(storeName).get(id);
-    request.onsuccess = () => resolve(request.result || null);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-async function putOne(storeName, value) {
-  await withStore(storeName, "readwrite", (store) => store.put(value));
-}
-
-async function deleteOne(storeName, id) {
-  await withStore(storeName, "readwrite", (store) => store.delete(id));
-}
-
 async function addSyncLog(action, status, message) {
   await putOne(STORES.syncLogs, { id: crypto.randomUUID(), action, status, message, created_at: nowIso() });
 }
 
-function normalizeTransaction(input = {}) {
-  const timestamp = nowIso();
-  const type = input.type === "income" ? "income" : "expense";
-  return {
-    id: String(input.id || crypto.randomUUID()),
-    amount: Number(input.amount || 0),
-    type,
-    category: String(input.category || (type === "income" ? "待分類收入" : "待分類支出")),
-    category_id: input.category_id || null,
-    account_id: input.account_id || null,
-    payment_route_id: input.payment_route_id || null,
-    note: String(input.note || ""),
-    date: String(input.date || todayKey()),
-    created_at: String(input.created_at || timestamp),
-    updated_at: String(input.updated_at || timestamp),
-    synced_at: input.synced_at || null,
-    sync_status: ["local", "pending", "synced", "failed", "conflict"].includes(input.sync_status) ? input.sync_status : "pending",
-    source_device: String(input.source_device || deviceId()),
-    deleted_at: input.deleted_at || null,
-    conflict_meta: input.conflict_meta || null,
-    revision: Math.max(1, Number(input.revision || 1)),
-    base_revision: Math.max(0, Number(input.base_revision || 0)),
-    relay_event_id: input.relay_event_id || null,
-    cloud_received_at: input.cloud_received_at || null,
-    platform_received_at: input.platform_received_at || null,
-    trashed_at: input.trashed_at || null,
-    trash_reason: input.trash_reason || null,
-    sync_stage: ["local_saved", "sync_pending", "synced_to_google", "ready_for_import", "imported", "failed", "conflict"].includes(input.sync_stage)
-      ? input.sync_stage
-      : input.platform_received_at ? "ready_for_import" : input.cloud_received_at ? "synced_to_google" : "local_saved"
-  };
-}
-
 function calculate(source = formula) {
-  const cleaned = source.replace(/[+\-*/.]$/, "");
-  if (!cleaned || !/^[0-9+\-*/. ]+$/.test(cleaned)) return null;
-  try {
-    const result = Math.round(Function(`"use strict"; return (${cleaned})`)() * 100) / 100;
-    return Number.isFinite(result) ? result : null;
-  } catch {
-    return null;
-  }
+  return calculateFormula(source);
 }
 
 function renderCalculator(label = formula) {
   const value = calculate();
   if (value !== null) calculatedAmount = value;
-  $("formula").textContent = label || "輸入金額";
-  $("amountDisplay").textContent = Number(calculatedAmount || 0).toLocaleString("zh-TW", { maximumFractionDigits: 2 });
+  renderCalculatorView({ formula: label || "輸入金額", amount: calculatedAmount });
 }
 
 function resetCalculator() {
@@ -168,17 +61,7 @@ function resetCalculator() {
 }
 
 function enterKey(value) {
-  const operators = ["+", "-", "*", "/"];
-  if (operators.includes(value)) {
-    if (!formula && !calculatedAmount) return;
-    formula = operators.includes(formula.slice(-1)) ? `${formula.slice(0, -1)}${value}` : `${formula || calculatedAmount}${value}`;
-  } else if (value === ".") {
-    const current = formula.split(/[+\-*/]/).pop() || "";
-    if (current.includes(".")) return;
-    formula += current ? "." : "0.";
-  } else {
-    formula += value;
-  }
+  formula = nextFormulaForKey(formula, calculatedAmount, value);
   renderCalculator();
 }
 
@@ -198,10 +81,10 @@ function currentFormData(amount = calculatedAmount) {
     note: $("noteInput").value.trim(),
     sync_status: "pending",
     sync_stage: "local_saved"
-  });
+  }, deviceId());
 }
 
-async function saveTransaction(detail = false) {
+async function saveTransaction(detail = false, quickOverrides = {}) {
   const amount = calculate();
   if (!amount || amount <= 0) {
     $("saveHint").textContent = "請先輸入金額";
@@ -211,7 +94,7 @@ async function saveTransaction(detail = false) {
   const previous = editingId ? await getOne(STORES.transactions, editingId) : null;
   const transaction = detail
     ? currentFormData(amount)
-    : normalizeTransaction({ amount, type: "expense", category: "待分類支出", note: "", sync_status: "pending", sync_stage: "local_saved" });
+    : normalizeTransaction({ amount, type: quickType, category: quickType === "income" ? "待分類收入" : "待分類支出", note: "", sync_status: "pending", sync_stage: "local_saved", ...quickOverrides }, deviceId());
 
   if (previous) {
     transaction.created_at = previous.created_at;
@@ -348,18 +231,6 @@ async function permanentlyDelete(ids) {
   await refresh();
 }
 
-function downloadFile(fileName, content, type) {
-  const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = fileName;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
-
 async function exportJson() {
   const payload = {
     app: "pocket-ledger",
@@ -375,14 +246,10 @@ async function exportJson() {
   await refresh();
 }
 
-function csvEscape(value) {
-  return `"${String(value ?? "").replaceAll('"', '""')}"`;
-}
-
 async function exportCsv() {
   const rows = await getAll(STORES.transactions);
   const headers = ["id", "amount", "type", "category", "category_id", "account_id", "payment_route_id", "note", "date", "created_at", "updated_at", "synced_at", "sync_status", "sync_stage", "source_device", "deleted_at"];
-  const csv = [headers.join(","), ...rows.map((row) => headers.map((key) => csvEscape(row[key])).join(","))].join("\n");
+  const csv = buildCsv(rows, headers);
   downloadFile(`pocket-ledger-${todayKey()}.csv`, csv, "text/csv;charset=utf-8");
   localStorage.setItem(LAST_EXPORT_KEY, nowIso());
   await addSyncLog("export", "success", `CSV 已匯出，共 ${rows.length} 筆`);
@@ -401,7 +268,7 @@ async function importJsonFile(file) {
   let conflicted = 0;
 
   for (const raw of incoming) {
-    const next = normalizeTransaction(raw);
+    const next = normalizeTransaction(raw, deviceId());
     const current = await getOne(STORES.transactions, next.id);
     if (!current) {
       await putOne(STORES.transactions, next);
@@ -438,22 +305,19 @@ async function importJsonFile(file) {
 }
 
 function autoCleanupEnabled() {
-  return localStorage.getItem(AUTO_CLEANUP_KEY) !== "false";
+  return isAutoCleanupEnabled(localStorage, AUTO_CLEANUP_KEY);
 }
 
 function cleanupCandidates(rows, automatic) {
-  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  return rows.filter((row) => !row.trashed_at && row.platform_received_at && (!automatic || Date.parse(row.platform_received_at) <= cutoff));
+  return findCleanupCandidates(rows, automatic);
 }
 
 function approximateBytes(rows) {
-  return new TextEncoder().encode(JSON.stringify(rows)).byteLength;
+  return estimateRowsBytes(rows);
 }
 
 function formatBytes(bytes) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+  return formatByteSize(bytes);
 }
 
 async function movePlatformCopiesToTrash(rows, source) {
@@ -561,18 +425,39 @@ async function refresh() {
   const lastImport = localStorage.getItem(LAST_IMPORT_KEY);
   $("syncSummary").textContent = lastExport ? `上次匯出 ${new Date(lastExport).toLocaleString("zh-TW")}` : (lastImport ? "最近有匯入" : "尚未同步");
   renderTransactions(rows);
+  renderRecentView(rows, { onEdit: editTransaction, onDelete: softDeleteTransaction });
   renderTrash(rows);
   renderSyncLogs(logs);
   renderCloudState(rows);
+  const snapshot = await getOne(STORES.referenceData, "platform-settings");
+  renderSpendableView(calculateSpendable(snapshot, activeRows));
+}
+
+function openDetailEditor() {
+  $("detailForm").hidden = false;
+  $("noteInput").focus();
+}
+
+function closeVoiceDialog() {
+  $("voiceDialog").hidden = true;
+  $("voiceStatus").textContent = "準備聆聽";
+}
+
+function openVoiceCapture() {
+  $("voiceDialog").hidden = false;
+  $("voiceNoteInput").value = "";
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Recognition) { $("voiceStatus").textContent = "此瀏覽器未提供語音辨識，可直接輸入名目。"; $("voiceNoteInput").focus(); return; }
+  const recognition = new Recognition();
+  recognition.lang = "zh-TW"; recognition.interimResults = false; recognition.maxAlternatives = 1;
+  recognition.onstart = () => { $("voiceStatus").textContent = "正在聆聽…"; };
+  recognition.onresult = (event) => { $("voiceNoteInput").value = event.results[0][0].transcript.trim(); $("voiceStatus").textContent = "請確認名目，確認後會直接存入手機。"; };
+  recognition.onerror = () => { $("voiceStatus").textContent = "沒有辨識成功，可以重試或直接輸入。"; $("voiceNoteInput").focus(); };
+  recognition.start();
 }
 
 function relayConfig() {
   return { url: localStorage.getItem(RELAY_URL_KEY)?.trim() || "", token: localStorage.getItem(RELAY_TOKEN_KEY) || "" };
-}
-
-function queueCloudSync(delay = 650) {
-  clearTimeout(syncTimer);
-  syncTimer = setTimeout(() => void syncPendingToCloud(), delay);
 }
 
 function optionMarkup(items, emptyLabel, selected = "") {
@@ -634,20 +519,6 @@ function renderCloudState(rows) {
   $("cloudState").textContent = `手機 ${phone}｜雲端 ${cloud}｜平台 ${platform}`;
 }
 
-function jsonp(url, params) {
-  return new Promise((resolve, reject) => {
-    const callback = `pocketLedger_${crypto.randomUUID().replaceAll("-", "")}`;
-    const script = document.createElement("script");
-    const timer = setTimeout(() => finish(new Error("雲端收據查詢逾時")), 12000);
-    const finish = (error, value) => { clearTimeout(timer); script.remove(); delete window[callback]; error ? reject(error) : resolve(value); };
-    window[callback] = (value) => finish(null, value);
-    script.onerror = () => finish(new Error("無法查詢 Google 中繼站"));
-    const query = new URLSearchParams({ ...params, callback });
-    script.src = `${url}?${query}`;
-    document.head.append(script);
-  });
-}
-
 async function syncPendingToCloud() {
   const config = relayConfig();
   if (!config.url || !config.token) { $("cloudState").textContent = "缺少網址或配對碼"; return; }
@@ -689,10 +560,14 @@ function applyTheme(theme) {
 }
 
 function initEvents() {
+  queueCloudSync = createDebouncedQueue(syncPendingToCloud);
   const pairedNow = consumePairingHash();
   $("dateInput").value = todayKey();
   $("appVersion").textContent = `版本 ${APP_VERSION}`;
   applyTheme(localStorage.getItem(THEME_KEY) || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
+  setCaptureType(quickType);
+  initScrollTopButton();
+  initActionRail({ onEdit: openDetailEditor, onSave: () => saveTransaction(false), onVoice: openVoiceCapture });
 
   $("themeToggle").addEventListener("click", () => applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
   document.querySelectorAll("[data-key]").forEach((button) => button.addEventListener("click", () => enterKey(button.dataset.key)));
@@ -709,10 +584,13 @@ function initEvents() {
     calculatedAmount = value;
     renderCalculator(`${value}`);
   });
-  $("quickSaveButton").addEventListener("click", () => saveTransaction(false));
-  $("openDetailButton").addEventListener("click", () => {
-    $("detailForm").hidden = !$("detailForm").hidden;
-    if (!$("detailForm").hidden) $("noteInput").focus();
+  document.querySelectorAll("[data-capture-type]").forEach((button) => button.addEventListener("click", () => { quickType = button.dataset.captureType; setCaptureType(quickType); }));
+  $("cancelVoiceButton").addEventListener("click", closeVoiceDialog);
+  $("confirmVoiceButton").addEventListener("click", async () => {
+    const note = $("voiceNoteInput").value.trim();
+    if (!note) { $("voiceStatus").textContent = "請先說出或輸入名目。"; return; }
+    await saveTransaction(false, { note });
+    closeVoiceDialog();
   });
   $("detailForm").addEventListener("submit", async (event) => {
     event.preventDefault();
