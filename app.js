@@ -31,6 +31,7 @@ let undoRecordId = null;
 let queueCloudSync = () => {};
 let quickType = "expense";
 let voiceRecognition = null;
+let currentPage = "capture";
 
 function deviceId() {
   let id = localStorage.getItem(DEVICE_KEY);
@@ -545,6 +546,7 @@ function openVoiceCapture() {
 }
 
 function activatePage(page) {
+  currentPage = page;
   document.querySelectorAll("[data-page]").forEach((section) => {
     section.hidden = section.dataset.page !== page;
     section.classList.toggle("is-active", section.dataset.page === page);
@@ -667,7 +669,7 @@ function initEvents() {
   $("appVersion").textContent = `版本 ${APP_VERSION}`;
   applyTheme(localStorage.getItem(THEME_KEY) || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
   setCaptureType(quickType);
-  initScrollTopButton();
+  initScrollTopButton({ getCurrentPage: () => currentPage, onNavigate: activatePage });
   initActionRail({ onEdit: openDetailEditor, onSave: () => saveTransaction(false), onVoice: openVoiceCapture });
 
   $("themeToggle").addEventListener("click", () => applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
@@ -745,6 +747,7 @@ function initEvents() {
     void syncPendingToCloud();
   });
   $("syncNowButton").addEventListener("click", syncPendingToCloud);
+  $("walletSyncButton").addEventListener("click", syncPendingToCloud);
   $("paymentRouteInput").addEventListener("change", (event) => {
     const accountId = event.currentTarget.selectedOptions[0]?.dataset.accountId;
     if (accountId) $("accountInput").value = accountId;

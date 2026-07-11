@@ -1,6 +1,79 @@
-export function initScrollTopButton() {
-  const button = document.getElementById("scrollTopButton"); const capture = document.getElementById("captureStart");
-  const observer = new IntersectionObserver(([entry]) => { button.hidden = entry.isIntersecting; }, { threshold: 0.08 });
+export function initScrollTopButton({ getCurrentPage, onNavigate }) {
+  const menu = document.getElementById("appMenu");
+  const main = document.getElementById("appMenuMain");
+  const backdrop = document.getElementById("appMenuBackdrop");
+  const capture = document.getElementById("captureStart");
+  const items = [...document.querySelectorAll(".app-menu-item")];
+  let captureVisible = true;
+  let pressTimer = null;
+  let isOpen = false;
+  let didLongPress = false;
+  let target = null;
+
+  const setMenuVisibility = () => {
+    menu.hidden = getCurrentPage() === "capture" && captureVisible;
+  };
+  const close = () => {
+    isOpen = false;
+    target = null;
+    menu.classList.remove("is-open");
+    backdrop.hidden = true;
+    items.forEach((item) => item.classList.remove("is-target"));
+  };
+  const open = () => {
+    didLongPress = true;
+    isOpen = true;
+    menu.hidden = false;
+    menu.classList.add("is-open");
+    backdrop.hidden = false;
+  };
+  const itemAtPoint = (x, y) => {
+    if (!isOpen) return null;
+    return items.find((item) => {
+      const rect = item.getBoundingClientRect();
+      return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+    }) || null;
+  };
+  const highlight = (item) => {
+    target = item;
+    items.forEach((entry) => entry.classList.toggle("is-target", entry === item));
+  };
+  const navigate = (page) => {
+    close();
+    onNavigate(page);
+    setMenuVisibility();
+  };
+
+  const observer = new IntersectionObserver(([entry]) => {
+    captureVisible = entry.isIntersecting;
+    setMenuVisibility();
+  }, { threshold: 0.08 });
   observer.observe(capture);
-  button.addEventListener("click", () => { capture.scrollIntoView({ behavior: "smooth", block: "start" }); window.setTimeout(() => document.getElementById("actionThumb")?.focus({ preventScroll: true }), 450); });
+
+  main.addEventListener("pointerdown", (event) => {
+    didLongPress = false;
+    main.setPointerCapture(event.pointerId);
+    pressTimer = window.setTimeout(open, 330);
+  });
+  main.addEventListener("pointermove", (event) => {
+    if (!isOpen) return;
+    highlight(itemAtPoint(event.clientX, event.clientY));
+  });
+  main.addEventListener("pointerup", (event) => {
+    window.clearTimeout(pressTimer);
+    if (isOpen) {
+      const selected = target || itemAtPoint(event.clientX, event.clientY);
+      if (selected) navigate(selected.dataset.pageTab);
+      else close();
+      return;
+    }
+    if (!didLongPress) navigate("capture");
+  });
+  main.addEventListener("pointercancel", () => {
+    window.clearTimeout(pressTimer);
+    close();
+  });
+  items.forEach((item) => item.addEventListener("click", () => navigate(item.dataset.pageTab)));
+  backdrop.addEventListener("click", close);
+  setMenuVisibility();
 }
