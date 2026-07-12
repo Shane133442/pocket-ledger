@@ -220,8 +220,9 @@ select:focus-visible,
 .recent-actions button { padding: .35rem .45rem; border-radius: 9px; font-size: .75rem; }
 .app-menu {
   position: fixed;
-  right: calc(max(1rem, env(safe-area-inset-right)) + 20px);
+  left: 50%;
   bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 20px);
+  transform: translateX(-50%);
   z-index: 22;
   width: 5.22rem;
   height: 5.22rem;
@@ -826,7 +827,7 @@ summary {
     border: 1px solid color-mix(in srgb, var(--glass-edge), transparent 18%);
     background:
       radial-gradient(circle at -18% -22%, rgba(255, 255, 255, 0.5), transparent 60%),
-      linear-gradient(145deg, color-mix(in srgb, var(--blue), transparent 84%), color-mix(in srgb, var(--glass-button), transparent 8%));
+      linear-gradient(145deg, color-mix(in srgb, #55c47b, transparent 84%), color-mix(in srgb, var(--glass-button), transparent 8%));
     box-shadow:
       inset 0 1px 1px rgba(255,255,255,.58),
       0 10px 24px var(--glass-shadow);
@@ -836,7 +837,7 @@ summary {
     border: 1px solid color-mix(in srgb, var(--glass-edge), transparent 18%);
     background:
       radial-gradient(circle at -18% -22%, rgba(255, 255, 255, 0.5), transparent 60%),
-      linear-gradient(270deg, color-mix(in srgb, #55c47b, transparent 84%), color-mix(in srgb, var(--glass-button), transparent 8%));
+      linear-gradient(270deg, color-mix(in srgb, var(--blue), transparent 84%), color-mix(in srgb, var(--glass-button), transparent 8%));
     box-shadow:
       inset 0 1px 1px rgba(255,255,255,.58),
       0 10px 24px var(--glass-shadow);
