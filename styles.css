@@ -321,9 +321,9 @@ select:focus-visible,
   opacity: 1;
   pointer-events: auto;
 }
-.app-menu.is-open .app-menu-item:nth-of-type(2) { transform: translate(-4.7rem, -5.35rem) scale(1); }
+.app-menu.is-open .app-menu-item:nth-of-type(2) { transform: translate(-4.7rem, -4.45rem) scale(1); }
 .app-menu.is-open .app-menu-item:nth-of-type(3) { transform: translate(0, -5.95rem) scale(1); }
-.app-menu.is-open .app-menu-item:nth-of-type(4) { transform: translate(4.7rem, -5.35rem) scale(1); }
+.app-menu.is-open .app-menu-item:nth-of-type(4) { transform: translate(4.7rem, -4.45rem) scale(1); }
 .app-menu-item.is-target,
 .app-menu-item.is-selected {
   color: #fff;
@@ -831,7 +831,7 @@ summary {
     border: 1px solid color-mix(in srgb, var(--glass-edge), transparent 18%);
     background:
       radial-gradient(circle at -18% -22%, rgba(255, 255, 255, 0.5), transparent 60%),
-      linear-gradient(145deg, color-mix(in srgb, #55c47b, transparent 84%), color-mix(in srgb, var(--glass-button), transparent 8%));
+      linear-gradient(145deg, color-mix(in srgb, var(--blue), transparent 84%), color-mix(in srgb, var(--glass-button), transparent 8%));
     box-shadow:
       inset 0 1px 1px rgba(255,255,255,.58),
       0 10px 24px var(--glass-shadow);
@@ -841,7 +841,7 @@ summary {
     border: 1px solid color-mix(in srgb, var(--glass-edge), transparent 18%);
     background:
       radial-gradient(circle at -18% -22%, rgba(255, 255, 255, 0.5), transparent 60%),
-      linear-gradient(270deg, color-mix(in srgb, var(--blue), transparent 84%), color-mix(in srgb, var(--glass-button), transparent 8%));
+      linear-gradient(270deg, color-mix(in srgb, #55c47b, transparent 84%), color-mix(in srgb, var(--glass-button), transparent 8%));
     box-shadow:
       inset 0 1px 1px rgba(255,255,255,.58),
       0 10px 24px var(--glass-shadow);
