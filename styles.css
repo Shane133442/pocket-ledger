@@ -11,11 +11,11 @@
   --blue: #5d8ed8;
   --danger: #b94a48;
   --shadow: 0 18px 40px rgba(118, 86, 13, 0.14);
-  --glass-button: rgba(222, 238, 242, 0.26);
-  --glass-button-strong: rgba(245, 252, 255, 0.48);
-  --glass-edge: rgba(236, 252, 255, 0.56);
-  --glass-shadow: rgba(10, 25, 34, 0.22);
-  --glass-glow: rgba(218, 244, 255, 0.46);
+  --glass-button: rgba(125, 151, 163, 0.34);
+  --glass-button-strong: rgba(224, 244, 252, 0.34);
+  --glass-edge: rgba(211, 236, 247, 0.64);
+  --glass-shadow: rgba(8, 22, 32, 0.28);
+  --glass-glow: rgba(198, 232, 246, 0.44);
   font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -32,9 +32,9 @@
   --blue: #83b7ff;
   --danger: #ff918d;
   --shadow: 0 18px 44px rgba(0, 0, 0, 0.35);
-  --glass-button: rgba(96, 130, 145, 0.22);
-  --glass-button-strong: rgba(224, 248, 255, 0.16);
-  --glass-edge: rgba(214, 245, 255, 0.42);
+  --glass-button: rgba(116, 148, 164, 0.28);
+  --glass-button-strong: rgba(211, 237, 248, 0.16);
+  --glass-edge: rgba(197, 228, 240, 0.52);
   --glass-shadow: rgba(0, 0, 0, 0.38);
   --glass-glow: rgba(105, 212, 255, 0.34);
 }
@@ -72,18 +72,23 @@ button,
   border-radius: 16px;
   padding: 0.82rem 1rem;
   background:
-    radial-gradient(circle at 28% 18%, rgba(255, 255, 255, 0.48), transparent 28%),
-    linear-gradient(150deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.06) 42%, rgba(10, 32, 42, 0.08)),
+    radial-gradient(circle at 30% 22%, rgba(255, 255, 255, 0.5), transparent 24%),
+    radial-gradient(circle at 70% 78%, rgba(255, 255, 255, 0.15), transparent 36%),
+    linear-gradient(150deg, rgba(221, 241, 249, 0.34), rgba(150, 180, 193, 0.14) 44%, rgba(12, 34, 46, 0.14)),
     var(--glass-button);
   color: var(--text);
   cursor: pointer;
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.5),
-    inset 0 -1px 1px rgba(255,255,255,.2),
-    0 12px 28px var(--glass-shadow);
-  backdrop-filter: blur(18px) saturate(145%);
-  -webkit-backdrop-filter: blur(18px) saturate(145%);
+    inset 0 1px 1px rgba(255,255,255,.58),
+    inset 0 -1px 2px rgba(219,241,250,.22),
+    0 14px 30px var(--glass-shadow);
+  backdrop-filter: blur(20px) saturate(145%);
+  -webkit-backdrop-filter: blur(20px) saturate(145%);
   transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, background .16s ease;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 button:hover,
@@ -93,7 +98,7 @@ button:hover,
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,.68),
     inset 0 -1px 1px rgba(255,255,255,.25),
-    0 0 0 4px color-mix(in srgb, var(--glass-glow), transparent 72%),
+    0 0 0 4px color-mix(in srgb, var(--glass-glow), transparent 66%),
     0 16px 34px var(--glass-shadow);
 }
 
@@ -255,8 +260,9 @@ select:focus-visible,
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--glass-edge), transparent 8%);
   background:
-    radial-gradient(circle at 33% 24%, rgba(255, 255, 255, 0.5), transparent 30%),
-    linear-gradient(155deg, rgba(235, 250, 255, 0.28), rgba(235, 250, 255, 0.08) 45%, rgba(8, 28, 38, 0.12)),
+    radial-gradient(circle at 31% 23%, rgba(255, 255, 255, 0.52), transparent 24%),
+    radial-gradient(circle at 68% 78%, rgba(255, 255, 255, 0.13), transparent 36%),
+    linear-gradient(155deg, rgba(221, 241, 249, 0.34), rgba(155, 187, 199, 0.14) 48%, rgba(9, 32, 43, 0.16)),
     var(--glass-button);
   box-shadow:
     inset 0 1px 1px rgba(255,255,255,.62),
@@ -277,8 +283,9 @@ select:focus-visible,
   width: 4.35rem;
   height: 4.35rem;
   background:
-    radial-gradient(circle at 32% 22%, rgba(255, 255, 255, 0.5), transparent 28%),
-    linear-gradient(155deg, rgba(255, 229, 134, 0.42), rgba(244, 181, 47, 0.18) 48%, rgba(65, 89, 98, 0.12)),
+    radial-gradient(circle at 31% 23%, rgba(255, 255, 255, 0.52), transparent 24%),
+    radial-gradient(circle at 68% 78%, rgba(255, 255, 255, 0.13), transparent 36%),
+    linear-gradient(155deg, rgba(221, 241, 249, 0.34), rgba(155, 187, 199, 0.14) 48%, rgba(9, 32, 43, 0.16)),
     var(--glass-button);
   box-shadow:
     inset 0 1px 1px rgba(255,255,255,.68),
@@ -344,8 +351,14 @@ select:focus-visible,
   border-radius: 999px;
   color: #8b8b8b;
   background:
-    linear-gradient(145deg, rgba(255,255,255,.46), rgba(255,255,255,.08)),
+    radial-gradient(circle at 31% 23%, rgba(255, 255, 255, 0.52), transparent 24%),
+    radial-gradient(circle at 68% 78%, rgba(255, 255, 255, 0.13), transparent 36%),
+    linear-gradient(155deg, rgba(221, 241, 249, 0.34), rgba(155, 187, 199, 0.14) 48%, rgba(9, 32, 43, 0.16)),
     var(--glass-button);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 .voice-indicator svg {
   width: 2rem;
@@ -478,10 +491,12 @@ select:focus-visible,
 
 .primary-button,
 .accent-button {
-  border-color: color-mix(in srgb, var(--gold), var(--gold-dark) 28%);
+  border-color: color-mix(in srgb, var(--glass-edge), var(--gold) 18%);
   background:
-    linear-gradient(145deg, rgba(255,255,255,.46), rgba(255,255,255,.06)),
-    color-mix(in srgb, var(--gold), transparent 8%);
+    radial-gradient(circle at 30% 22%, rgba(255, 255, 255, 0.5), transparent 24%),
+    radial-gradient(circle at 70% 78%, rgba(255, 255, 255, 0.15), transparent 36%),
+    linear-gradient(150deg, rgba(221, 241, 249, 0.34), rgba(150, 180, 193, 0.14) 44%, rgba(12, 34, 46, 0.14)),
+    color-mix(in srgb, var(--glass-button), var(--gold) 10%);
   color: #2b1a00;
   font-weight: 900;
 }
@@ -624,6 +639,10 @@ summary {
     inset 0 1px 0 rgba(255,255,255,.52),
     0 10px 24px var(--glass-shadow);
   font-weight: 800;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 .trash-summary-button::-webkit-details-marker {
   display: none;
