@@ -21,6 +21,8 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
+  background:
+    linear-gradient(180deg, #000 0, #000 6.5rem, #151515 18rem, #202020 100%);
   --bg: #161616;
   --surface: rgba(34, 34, 34, 0.86);
   --surface-strong: #242424;
@@ -50,6 +52,11 @@ html {
     linear-gradient(135deg, var(--bg), color-mix(in srgb, var(--bg), var(--gold) 8%));
 }
 
+:root[data-theme="dark"] body {
+  background:
+    linear-gradient(180deg, #000 0, #000 6.5rem, #151515 18rem, #202020 100%);
+}
+
 body {
   margin: 0;
   color: var(--text);
@@ -72,7 +79,7 @@ button,
   border-radius: 16px;
   padding: 0.82rem 1rem;
   background:
-    radial-gradient(circle at 18% 8%, rgba(255, 255, 255, 0.5), transparent 36%),
+    radial-gradient(circle at 10% 3%, rgba(255, 255, 255, 0.76), transparent 20%),
     radial-gradient(circle at 70% 78%, rgba(255, 255, 255, 0.15), transparent 36%),
     linear-gradient(150deg, rgba(235, 235, 235, 0.34), rgba(150, 150, 150, 0.14) 44%, rgba(22, 22, 22, 0.14)),
     var(--glass-button);
@@ -260,7 +267,7 @@ select:focus-visible,
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--glass-edge), transparent 8%);
   background:
-    radial-gradient(circle at 18% 8%, rgba(255, 255, 255, 0.52), transparent 36%),
+    radial-gradient(circle at 10% 3%, rgba(255, 255, 255, 0.76), transparent 20%),
     radial-gradient(circle at 68% 78%, rgba(255, 255, 255, 0.13), transparent 36%),
     linear-gradient(155deg, rgba(235, 235, 235, 0.34), rgba(155, 155, 155, 0.14) 48%, rgba(22, 22, 22, 0.16)),
     var(--glass-button);
@@ -283,7 +290,7 @@ select:focus-visible,
   width: 4.35rem;
   height: 4.35rem;
   background:
-    radial-gradient(circle at 18% 8%, rgba(255, 255, 255, 0.52), transparent 36%),
+    radial-gradient(circle at 10% 3%, rgba(255, 255, 255, 0.76), transparent 20%),
     radial-gradient(circle at 68% 78%, rgba(255, 255, 255, 0.13), transparent 36%),
     linear-gradient(155deg, rgba(235, 235, 235, 0.34), rgba(155, 155, 155, 0.14) 48%, rgba(22, 22, 22, 0.16)),
     var(--glass-button);
@@ -351,7 +358,7 @@ select:focus-visible,
   border-radius: 999px;
   color: #8b8b8b;
   background:
-    radial-gradient(circle at 18% 8%, rgba(255, 255, 255, 0.52), transparent 36%),
+    radial-gradient(circle at 10% 3%, rgba(255, 255, 255, 0.76), transparent 20%),
     radial-gradient(circle at 68% 78%, rgba(255, 255, 255, 0.13), transparent 36%),
     linear-gradient(155deg, rgba(235, 235, 235, 0.34), rgba(155, 155, 155, 0.14) 48%, rgba(22, 22, 22, 0.16)),
     var(--glass-button);
@@ -504,7 +511,7 @@ select:focus-visible,
 .accent-button {
   border-color: color-mix(in srgb, var(--glass-edge), var(--gold) 18%);
   background:
-    radial-gradient(circle at 18% 8%, rgba(255, 255, 255, 0.5), transparent 36%),
+    radial-gradient(circle at 10% 3%, rgba(255, 255, 255, 0.76), transparent 20%),
     radial-gradient(circle at 70% 78%, rgba(255, 255, 255, 0.15), transparent 36%),
     linear-gradient(150deg, rgba(235, 235, 235, 0.34), rgba(150, 150, 150, 0.14) 44%, rgba(22, 22, 22, 0.14)),
     color-mix(in srgb, var(--glass-button), var(--gold) 10%);
@@ -634,8 +641,10 @@ summary {
   cursor: pointer;
 }
 .trash-summary-button {
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .15rem;
   width: 100%;
   min-height: 3.2rem;
   margin-top: 1rem;
@@ -643,7 +652,7 @@ summary {
   border: 1px solid color-mix(in srgb, var(--glass-edge), transparent 14%);
   border-radius: 16px;
   background:
-    radial-gradient(circle at 18% 8%, rgba(255, 255, 255, 0.46), transparent 42%),
+    radial-gradient(circle at 10% 3%, rgba(255, 255, 255, 0.76), transparent 20%),
     linear-gradient(150deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.07), rgba(10, 32, 42, 0.08)),
     var(--glass-button);
   box-shadow:
@@ -657,6 +666,9 @@ summary {
 }
 .trash-summary-button::-webkit-details-marker {
   display: none;
+}
+.trash-summary-button span {
+  display: inline;
 }
 
 .danger-button {
@@ -809,7 +821,7 @@ summary {
   }
 
   .rail-right {
-    background: linear-gradient(145deg, color-mix(in srgb, #55c47b, transparent 78%), transparent);
+    background: linear-gradient(270deg, color-mix(in srgb, #55c47b, transparent 78%), transparent);
   }
 
   .rail-thumb {

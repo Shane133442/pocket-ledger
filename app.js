@@ -698,6 +698,7 @@ function applyTheme(theme) {
   const next = theme === "dark" ? "dark" : "light";
   document.documentElement.dataset.theme = next;
   localStorage.setItem(THEME_KEY, next);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", next === "dark" ? "#000000" : "#d99a00");
   $("themeToggle").textContent = next === "dark" ? "☀️" : "🌙";
 }
 
