@@ -156,7 +156,7 @@
           <button id="cleanupPlatformButton" type="button">清理資料</button>
           <p class="notice">匯出後不會自動刪除手機資料。匯出的 JSON / CSV 之後再回到本地桌面平台手動匯入。</p>
           <details id="trashSection">
-            <summary>垃圾桶（<span id="trashCount">0</span>）</summary>
+            <summary class="trash-summary-button">垃圾桶（<span id="trashCount">0</span>）</summary>
             <p class="notice">垃圾桶不影響快速記帳。可逐筆還原，或經二次確認後永久刪除。</p>
             <div id="trashList" class="transaction-list"></div>
             <button id="emptyTrashButton" class="danger-button" type="button">清空垃圾桶</button>
@@ -170,7 +170,7 @@
     <div id="appMenu" class="app-menu" hidden>
       <div id="appMenuBackdrop" class="app-menu-backdrop" hidden></div>
       <button id="appMenuMain" class="app-menu-main" type="button" aria-label="回到記帳頁">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm1.5 4.5h7v3h-7v-3Zm0 5h2v2h-2v-2Zm3.5 0h2v2h-2v-2Zm3.5 0h2v2h-2v-2Zm-7 3.5h2v2h-2v-2Zm3.5 0h2v2h-2v-2Zm3.5 0h2v2h-2v-2Z"/></svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.2 3.25h9.6A2.2 2.2 0 0 1 19 5.45v13.1a2.2 2.2 0 0 1-2.2 2.2H7.2A2.2 2.2 0 0 1 5 18.55V5.45a2.2 2.2 0 0 1 2.2-2.2Zm.95 3.15v4.05h7.7V6.4h-7.7Zm.35 6.1v1.9h1.9v-1.9H8.5Zm3.55 0v1.9h1.9v-1.9h-1.9Zm3.55 0v1.9h1.9v-1.9h-1.9ZM8.5 16.05v1.9h1.9v-1.9H8.5Zm3.55 0v1.9h1.9v-1.9h-1.9Zm3.55 0v1.9h1.9v-1.9h-1.9Z"/></svg>
       </button>
       <button class="app-menu-item" type="button" data-page-tab="wallet" aria-label="錢包">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H17a2 2 0 0 1 2 2v1h.5A1.5 1.5 0 0 1 21 9.5v8A2.5 2.5 0 0 1 18.5 20h-12A2.5 2.5 0 0 1 4 17.5v-10Zm2.5-.5a.5.5 0 0 0 0 1H17V7H6.5Zm9.75 6a1.75 1.75 0 1 0 0 3.5H19V13h-2.75Z"/></svg>
