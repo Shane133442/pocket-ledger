@@ -21,22 +21,22 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #111a29;
-  --surface: rgba(27, 39, 58, 0.84);
-  --surface-strong: #1b273a;
+  --bg: #161616;
+  --surface: rgba(34, 34, 34, 0.86);
+  --surface-strong: #242424;
   --text: #fff8e8;
   --muted: #c9bfa9;
   --line: rgba(255, 220, 136, 0.18);
   --gold: #f2b940;
   --gold-dark: #d29a22;
-  --blue: #83b7ff;
+  --blue: #b8b8b8;
   --danger: #ff918d;
   --shadow: 0 18px 44px rgba(0, 0, 0, 0.35);
-  --glass-button: rgba(116, 148, 164, 0.28);
-  --glass-button-strong: rgba(211, 237, 248, 0.16);
-  --glass-edge: rgba(197, 228, 240, 0.52);
+  --glass-button: rgba(92, 92, 92, 0.3);
+  --glass-button-strong: rgba(225, 225, 225, 0.15);
+  --glass-edge: rgba(226, 226, 226, 0.46);
   --glass-shadow: rgba(0, 0, 0, 0.38);
-  --glass-glow: rgba(105, 212, 255, 0.34);
+  --glass-glow: rgba(230, 230, 230, 0.3);
 }
 
 * {
@@ -72,9 +72,9 @@ button,
   border-radius: 16px;
   padding: 0.82rem 1rem;
   background:
-    radial-gradient(circle at 30% 22%, rgba(255, 255, 255, 0.5), transparent 24%),
+    radial-gradient(circle at 18% 8%, rgba(255, 255, 255, 0.5), transparent 36%),
     radial-gradient(circle at 70% 78%, rgba(255, 255, 255, 0.15), transparent 36%),
-    linear-gradient(150deg, rgba(221, 241, 249, 0.34), rgba(150, 180, 193, 0.14) 44%, rgba(12, 34, 46, 0.14)),
+    linear-gradient(150deg, rgba(235, 235, 235, 0.34), rgba(150, 150, 150, 0.14) 44%, rgba(22, 22, 22, 0.14)),
     var(--glass-button);
   color: var(--text);
   cursor: pointer;
@@ -260,9 +260,9 @@ select:focus-visible,
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--glass-edge), transparent 8%);
   background:
-    radial-gradient(circle at 31% 23%, rgba(255, 255, 255, 0.52), transparent 24%),
+    radial-gradient(circle at 18% 8%, rgba(255, 255, 255, 0.52), transparent 36%),
     radial-gradient(circle at 68% 78%, rgba(255, 255, 255, 0.13), transparent 36%),
-    linear-gradient(155deg, rgba(221, 241, 249, 0.34), rgba(155, 187, 199, 0.14) 48%, rgba(9, 32, 43, 0.16)),
+    linear-gradient(155deg, rgba(235, 235, 235, 0.34), rgba(155, 155, 155, 0.14) 48%, rgba(22, 22, 22, 0.16)),
     var(--glass-button);
   box-shadow:
     inset 0 1px 1px rgba(255,255,255,.62),
@@ -283,9 +283,9 @@ select:focus-visible,
   width: 4.35rem;
   height: 4.35rem;
   background:
-    radial-gradient(circle at 31% 23%, rgba(255, 255, 255, 0.52), transparent 24%),
+    radial-gradient(circle at 18% 8%, rgba(255, 255, 255, 0.52), transparent 36%),
     radial-gradient(circle at 68% 78%, rgba(255, 255, 255, 0.13), transparent 36%),
-    linear-gradient(155deg, rgba(221, 241, 249, 0.34), rgba(155, 187, 199, 0.14) 48%, rgba(9, 32, 43, 0.16)),
+    linear-gradient(155deg, rgba(235, 235, 235, 0.34), rgba(155, 155, 155, 0.14) 48%, rgba(22, 22, 22, 0.16)),
     var(--glass-button);
   box-shadow:
     inset 0 1px 1px rgba(255,255,255,.68),
@@ -351,9 +351,9 @@ select:focus-visible,
   border-radius: 999px;
   color: #8b8b8b;
   background:
-    radial-gradient(circle at 31% 23%, rgba(255, 255, 255, 0.52), transparent 24%),
+    radial-gradient(circle at 18% 8%, rgba(255, 255, 255, 0.52), transparent 36%),
     radial-gradient(circle at 68% 78%, rgba(255, 255, 255, 0.13), transparent 36%),
-    linear-gradient(155deg, rgba(221, 241, 249, 0.34), rgba(155, 187, 199, 0.14) 48%, rgba(9, 32, 43, 0.16)),
+    linear-gradient(155deg, rgba(235, 235, 235, 0.34), rgba(155, 155, 155, 0.14) 48%, rgba(22, 22, 22, 0.16)),
     var(--glass-button);
   user-select: none;
   -webkit-user-select: none;
@@ -363,6 +363,17 @@ select:focus-visible,
 .voice-indicator svg {
   width: 2rem;
   height: 2rem;
+  fill: currentColor;
+}
+.voice-toggle-button {
+  display: grid;
+  place-items: center;
+  min-height: 3.1rem;
+  padding: 0;
+}
+.voice-toggle-button svg {
+  width: 1.65rem;
+  height: 1.65rem;
   fill: currentColor;
 }
 .voice-indicator[data-state="recording"],
@@ -493,9 +504,9 @@ select:focus-visible,
 .accent-button {
   border-color: color-mix(in srgb, var(--glass-edge), var(--gold) 18%);
   background:
-    radial-gradient(circle at 30% 22%, rgba(255, 255, 255, 0.5), transparent 24%),
+    radial-gradient(circle at 18% 8%, rgba(255, 255, 255, 0.5), transparent 36%),
     radial-gradient(circle at 70% 78%, rgba(255, 255, 255, 0.15), transparent 36%),
-    linear-gradient(150deg, rgba(221, 241, 249, 0.34), rgba(150, 180, 193, 0.14) 44%, rgba(12, 34, 46, 0.14)),
+    linear-gradient(150deg, rgba(235, 235, 235, 0.34), rgba(150, 150, 150, 0.14) 44%, rgba(22, 22, 22, 0.14)),
     color-mix(in srgb, var(--glass-button), var(--gold) 10%);
   color: #2b1a00;
   font-weight: 900;
@@ -632,7 +643,7 @@ summary {
   border: 1px solid color-mix(in srgb, var(--glass-edge), transparent 14%);
   border-radius: 16px;
   background:
-    radial-gradient(circle at 28% 18%, rgba(255, 255, 255, 0.46), transparent 28%),
+    radial-gradient(circle at 18% 8%, rgba(255, 255, 255, 0.46), transparent 42%),
     linear-gradient(150deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.07), rgba(10, 32, 42, 0.08)),
     var(--glass-button);
   box-shadow:

@@ -495,8 +495,14 @@ function closeVoiceDialog() {
   $("voiceRecordButton").dataset.state = "idle";
 }
 
+function stopVoiceRecognition() {
+  if (!voiceRecognition) return;
+  $("voiceRecordButton").dataset.state = "processing";
+  $("voiceStatus").textContent = "正在結束收音並辨識…";
+  try { voiceRecognition.stop(); } catch { closeVoiceDialog(); }
+}
+
 function startVoiceRecognition() {
-  if (["recording", "processing"].includes($("voiceRecordButton").dataset.state)) return;
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!Recognition) {
     $("voiceRecordButton").dataset.state = "failed";
@@ -549,6 +555,14 @@ function startVoiceRecognition() {
   }
 }
 
+function toggleVoiceRecognition() {
+  if (["recording", "processing"].includes($("voiceRecordButton").dataset.state) && voiceRecognition) {
+    stopVoiceRecognition();
+    return;
+  }
+  startVoiceRecognition();
+}
+
 function openVoiceCapture() {
   $("voiceDialog").hidden = false;
   $("voiceNoteInput").value = "";
@@ -556,18 +570,17 @@ function openVoiceCapture() {
   $("voiceRecordButton").dataset.state = "idle";
 }
 
-function bindVoiceStartButton(button) {
-  const start = (event) => {
+function bindVoiceToggleButton(button) {
+  const toggle = (event) => {
     event.preventDefault();
-    startVoiceRecognition();
+    toggleVoiceRecognition();
   };
-  button.addEventListener("pointerdown", start);
-  button.addEventListener("click", (event) => event.preventDefault());
+  button.addEventListener("click", toggle);
   button.addEventListener("contextmenu", (event) => event.preventDefault());
   button.addEventListener("selectstart", (event) => event.preventDefault());
   button.addEventListener("touchstart", (event) => event.preventDefault(), { passive: false });
   button.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" || event.key === " ") start(event);
+    if (event.key === "Enter" || event.key === " ") toggle(event);
   });
 }
 
@@ -716,8 +729,8 @@ function initEvents() {
   });
   document.querySelectorAll("[data-capture-type]").forEach((button) => button.addEventListener("click", () => { quickType = button.dataset.captureType; setCaptureType(quickType); }));
   $("cancelVoiceButton").addEventListener("click", closeVoiceDialog);
-  bindVoiceStartButton($("voiceRecordButton"));
-  bindVoiceStartButton($("retryVoiceButton"));
+  bindVoiceToggleButton($("voiceRecordButton"));
+  bindVoiceToggleButton($("retryVoiceButton"));
   $("voiceNoteInput").addEventListener("input", () => {
     $("voiceRecordButton").dataset.state = $("voiceNoteInput").value.trim() ? "done" : "idle";
     $("voiceStatus").textContent = $("voiceNoteInput").value.trim() ? "可以編輯後儲存。" : "可直接輸入名目，或按語音輸入。";
