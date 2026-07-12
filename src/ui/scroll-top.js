@@ -8,6 +8,7 @@ export function initScrollTopButton({ getCurrentPage, onNavigate }) {
   let pressTimer = null;
   let isOpen = false;
   let didLongPress = false;
+  let lastTapAt = 0;
   let target = null;
 
   const setMenuVisibility = () => {
@@ -73,7 +74,16 @@ export function initScrollTopButton({ getCurrentPage, onNavigate }) {
       else close();
       return;
     }
-    if (!didLongPress) navigate("capture");
+    if (!didLongPress) {
+      const now = Date.now();
+      if (now - lastTapAt <= 320) {
+        lastTapAt = 0;
+        open();
+        return;
+      }
+      lastTapAt = now;
+      navigate("capture");
+    }
   });
   main.addEventListener("pointercancel", () => {
     window.clearTimeout(pressTimer);
