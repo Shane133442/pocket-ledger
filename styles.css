@@ -130,7 +130,7 @@ select:focus-visible,
 .app-shell {
   width: min(760px, 100%);
   margin: 0 auto;
-  padding: max(1rem, env(safe-area-inset-top)) 1rem max(2rem, env(safe-area-inset-bottom));
+  padding: max(1rem, env(safe-area-inset-top)) 1rem max(8rem, calc(env(safe-area-inset-bottom) + 7rem));
 }
 
 .topbar {
@@ -171,6 +171,7 @@ select:focus-visible,
 
 .app-footer { padding: 1rem 0 0; text-align: center; }
 .app-page[hidden] { display: none; }
+.app-page { padding-bottom: 7rem; }
 .spendable-strip {
   min-height: 5vh;
   display: grid;
@@ -245,7 +246,6 @@ select:focus-visible,
 .app-menu-main,
 .app-menu-item {
   position: absolute;
-  right: 0;
   bottom: 0;
   display: grid;
   place-items: center;
@@ -285,8 +285,8 @@ select:focus-visible,
   -webkit-backdrop-filter: blur(20px) saturate(150%);
 }
 .app-menu-main {
-  right: -.435rem;
-  bottom: -.435rem;
+  left: 0;
+  bottom: 0;
   width: 5.22rem;
   height: 5.22rem;
   z-index: 2;
@@ -306,6 +306,8 @@ select:focus-visible,
     0 14px 34px var(--glass-shadow);
 }
 .app-menu-item {
+  left: .435rem;
+  bottom: .435rem;
   opacity: 0;
   transform: translate(0, 0) scale(.72);
   pointer-events: none;
@@ -319,12 +321,13 @@ select:focus-visible,
   opacity: 1;
   pointer-events: auto;
 }
-.app-menu.is-open .app-menu-item:nth-of-type(2) { transform: translate(-5.25rem, .05rem) scale(1); }
-.app-menu.is-open .app-menu-item:nth-of-type(3) { transform: translate(-4.25rem, -4.35rem) scale(1); }
-.app-menu.is-open .app-menu-item:nth-of-type(4) { transform: translate(.05rem, -5.25rem) scale(1); }
+.app-menu.is-open .app-menu-item:nth-of-type(2) { transform: translate(-4.7rem, -5.35rem) scale(1); }
+.app-menu.is-open .app-menu-item:nth-of-type(3) { transform: translate(0, -5.95rem) scale(1); }
+.app-menu.is-open .app-menu-item:nth-of-type(4) { transform: translate(4.7rem, -5.35rem) scale(1); }
 .app-menu-item.is-target,
 .app-menu-item.is-selected {
-  color: color-mix(in srgb, var(--text), var(--gold) 28%);
+  color: #fff;
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, .82));
 }
 .app-menu-main:hover::before,
 .app-menu-main:active::before,
@@ -335,7 +338,8 @@ select:focus-visible,
   box-shadow:
     inset 0 1px 1px rgba(255,255,255,.76),
     inset 0 -1px 2px rgba(255,255,255,.28),
-    0 0 0 5px color-mix(in srgb, var(--glass-glow), transparent 64%),
+    0 0 0 7px color-mix(in srgb, var(--glass-glow), transparent 46%),
+    0 0 24px rgba(255, 255, 255, .42),
     0 18px 38px var(--glass-shadow);
 }
 .app-menu svg {
@@ -701,7 +705,7 @@ summary {
   }
 
   .app-shell {
-    padding: max(.55rem, env(safe-area-inset-top)) .8rem max(1.25rem, env(safe-area-inset-bottom));
+    padding: max(.55rem, env(safe-area-inset-top)) .8rem max(8.5rem, calc(env(safe-area-inset-bottom) + 7.5rem));
   }
 
   .topbar {

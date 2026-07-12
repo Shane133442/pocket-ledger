@@ -532,9 +532,17 @@ function startVoiceRecognition() {
     $("voiceNoteInput").focus();
     $("voiceNoteInput").select();
   };
-  voiceRecognition.onerror = () => {
+  voiceRecognition.onerror = (event) => {
     $("voiceRecordButton").dataset.state = "failed";
-    $("voiceStatus").textContent = "沒有辨識成功，可以再按語音輸入或直接輸入。";
+    const errorMessages = {
+      "not-allowed": "麥克風權限被拒絕，請到瀏覽器設定允許麥克風，或直接輸入名目。",
+      "service-not-allowed": "瀏覽器不允許語音辨識服務，請改用手動輸入。",
+      "no-speech": "沒有收到聲音，可以再按一次麥克風重試。",
+      "audio-capture": "沒有取得麥克風，請確認系統麥克風權限。",
+      "network": "語音辨識需要網路，但目前連線失敗，請直接輸入名目。",
+      "aborted": "語音輸入已停止，可以再按一次麥克風重試。"
+    };
+    $("voiceStatus").textContent = errorMessages[event.error] || `語音辨識失敗（${event.error || "unknown"}），可再按一次麥克風或直接輸入。`;
     $("voiceNoteInput").focus();
   };
   voiceRecognition.onend = () => {
@@ -578,7 +586,6 @@ function bindVoiceToggleButton(button) {
   button.addEventListener("click", toggle);
   button.addEventListener("contextmenu", (event) => event.preventDefault());
   button.addEventListener("selectstart", (event) => event.preventDefault());
-  button.addEventListener("touchstart", (event) => event.preventDefault(), { passive: false });
   button.addEventListener("keydown", (event) => {
     if (event.key === "Enter" || event.key === " ") toggle(event);
   });
