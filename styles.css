@@ -198,7 +198,7 @@ select:focus-visible,
 .rail-side { opacity: 0; min-height: 52px; border: 0; background: transparent; box-shadow: none; pointer-events: none; transition: opacity .16s ease, box-shadow .16s ease; }
 .action-rail.is-interacting .rail-side { opacity: 1; pointer-events: auto; }
 .rail-left { grid-column: 1; }.rail-right { grid-column: 3; }
-.rail-thumb { position: absolute; left: 50%; width: calc(100% - .5rem); min-height: 52px; translate: -50% 0; border-radius: 999px; touch-action: none; transition: transform .12s ease; z-index: 2; }
+.rail-thumb { position: absolute; left: .25rem; right: .25rem; width: auto; min-height: 52px; border-radius: 999px; touch-action: none; transition: transform .12s ease; z-index: 2; }
 .rail-side svg {
   width: 1.65rem;
   height: 1.65rem;
@@ -208,7 +208,6 @@ select:focus-visible,
 .rail-thumb span { display: block; font-weight: 900; }
 .rail-side small,
 .rail-thumb small { display: block; margin-top: .1rem; font-size: .68rem; opacity: .76; }
-.rail-hint { margin: .7rem 0 .35rem; color: var(--muted); font-size: .78rem; text-align: center; }
 .compact-status { margin-top: 0; }
 .recent-captures { margin-top: 1rem; padding-top: .85rem; border-top: 1px solid var(--line); }
 .recent-list { display: grid; gap: .45rem; }
@@ -220,8 +219,9 @@ select:focus-visible,
 .recent-actions button { padding: .35rem .45rem; border-radius: 9px; font-size: .75rem; }
 .app-menu {
   position: fixed;
-  right: calc(max(1rem, env(safe-area-inset-right)) + 20px);
+  left: 50%;
   bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 20px);
+  transform: translateX(-50%);
   z-index: 22;
   width: 5.22rem;
   height: 5.22rem;
@@ -244,7 +244,6 @@ select:focus-visible,
 .app-menu-main,
 .app-menu-item {
   position: absolute;
-  right: 0;
   bottom: 0;
   display: grid;
   place-items: center;
@@ -284,8 +283,8 @@ select:focus-visible,
   -webkit-backdrop-filter: blur(20px) saturate(150%);
 }
 .app-menu-main {
-  right: -.435rem;
-  bottom: -.435rem;
+  left: 0;
+  bottom: 0;
   width: 5.22rem;
   height: 5.22rem;
   z-index: 2;
@@ -305,6 +304,8 @@ select:focus-visible,
     0 14px 34px var(--glass-shadow);
 }
 .app-menu-item {
+  left: .435rem;
+  bottom: .435rem;
   opacity: 0;
   transform: translate(0, 0) scale(.72);
   pointer-events: none;
@@ -318,9 +319,9 @@ select:focus-visible,
   opacity: 1;
   pointer-events: auto;
 }
-.app-menu.is-open .app-menu-item:nth-of-type(2) { transform: translate(-5.25rem, .05rem) scale(1); }
-.app-menu.is-open .app-menu-item:nth-of-type(3) { transform: translate(-4.25rem, -4.35rem) scale(1); }
-.app-menu.is-open .app-menu-item:nth-of-type(4) { transform: translate(.05rem, -5.25rem) scale(1); }
+.app-menu.is-open .app-menu-item:nth-of-type(2) { transform: translate(0, -5.25rem) scale(1); }
+.app-menu.is-open .app-menu-item:nth-of-type(3) { transform: translate(0, -9.45rem) scale(1); }
+.app-menu.is-open .app-menu-item:nth-of-type(4) { transform: translate(0, -13.65rem) scale(1); }
 .app-menu-item.is-target,
 .app-menu-item.is-selected {
   color: color-mix(in srgb, var(--text), var(--gold) 28%);
@@ -843,7 +844,9 @@ summary {
   }
 
   .rail-thumb {
-    width: calc(100% - .5rem);
+    left: .25rem;
+    right: .25rem;
+    width: auto;
     min-height: clamp(3.35rem, 7.3svh, 4rem);
   }
 
