@@ -11,11 +11,11 @@
   --blue: #5d8ed8;
   --danger: #b94a48;
   --shadow: 0 18px 40px rgba(118, 86, 13, 0.14);
-  --glass-button: rgba(125, 151, 163, 0.34);
-  --glass-button-strong: rgba(224, 244, 252, 0.34);
-  --glass-edge: rgba(211, 236, 247, 0.64);
-  --glass-shadow: rgba(8, 22, 32, 0.28);
-  --glass-glow: rgba(198, 232, 246, 0.44);
+  --glass-button: rgba(255, 255, 255, 0.52);
+  --glass-button-strong: rgba(255, 255, 255, 0.68);
+  --glass-edge: rgba(255, 255, 255, 0.82);
+  --glass-shadow: rgba(92, 73, 18, 0.16);
+  --glass-glow: rgba(255, 255, 255, 0.58);
   font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -52,6 +52,11 @@ html {
     linear-gradient(135deg, var(--bg), color-mix(in srgb, var(--bg), var(--gold) 8%));
 }
 
+html[data-theme="dark"] {
+  background:
+    linear-gradient(180deg, #000 0, #000 6.5rem, #151515 18rem, #202020 100%);
+}
+
 :root[data-theme="dark"] body {
   background:
     linear-gradient(180deg, #000 0, #000 6.5rem, #151515 18rem, #202020 100%);
@@ -79,9 +84,9 @@ button,
   border-radius: 16px;
   padding: 0.82rem 1rem;
   background:
-    radial-gradient(circle at 10% 3%, rgba(255, 255, 255, 0.76), transparent 20%),
+    radial-gradient(circle at -18% -22%, rgba(255, 255, 255, 0.5), transparent 60%),
     radial-gradient(circle at 70% 78%, rgba(255, 255, 255, 0.15), transparent 36%),
-    linear-gradient(150deg, rgba(235, 235, 235, 0.34), rgba(150, 150, 150, 0.14) 44%, rgba(22, 22, 22, 0.14)),
+    linear-gradient(150deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.24) 44%, rgba(255, 255, 255, 0.1)),
     var(--glass-button);
   color: var(--text);
   cursor: pointer;
@@ -267,9 +272,9 @@ select:focus-visible,
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--glass-edge), transparent 8%);
   background:
-    radial-gradient(circle at 10% 3%, rgba(255, 255, 255, 0.76), transparent 20%),
+    radial-gradient(circle at -18% -22%, rgba(255, 255, 255, 0.5), transparent 60%),
     radial-gradient(circle at 68% 78%, rgba(255, 255, 255, 0.13), transparent 36%),
-    linear-gradient(155deg, rgba(235, 235, 235, 0.34), rgba(155, 155, 155, 0.14) 48%, rgba(22, 22, 22, 0.16)),
+    linear-gradient(155deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.24) 48%, rgba(255, 255, 255, 0.1)),
     var(--glass-button);
   box-shadow:
     inset 0 1px 1px rgba(255,255,255,.62),
@@ -290,9 +295,9 @@ select:focus-visible,
   width: 4.35rem;
   height: 4.35rem;
   background:
-    radial-gradient(circle at 10% 3%, rgba(255, 255, 255, 0.76), transparent 20%),
+    radial-gradient(circle at -18% -22%, rgba(255, 255, 255, 0.5), transparent 60%),
     radial-gradient(circle at 68% 78%, rgba(255, 255, 255, 0.13), transparent 36%),
-    linear-gradient(155deg, rgba(235, 235, 235, 0.34), rgba(155, 155, 155, 0.14) 48%, rgba(22, 22, 22, 0.16)),
+    linear-gradient(155deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.24) 48%, rgba(255, 255, 255, 0.1)),
     var(--glass-button);
   box-shadow:
     inset 0 1px 1px rgba(255,255,255,.68),
@@ -358,9 +363,9 @@ select:focus-visible,
   border-radius: 999px;
   color: #8b8b8b;
   background:
-    radial-gradient(circle at 10% 3%, rgba(255, 255, 255, 0.76), transparent 20%),
+    radial-gradient(circle at -18% -22%, rgba(255, 255, 255, 0.5), transparent 60%),
     radial-gradient(circle at 68% 78%, rgba(255, 255, 255, 0.13), transparent 36%),
-    linear-gradient(155deg, rgba(235, 235, 235, 0.34), rgba(155, 155, 155, 0.14) 48%, rgba(22, 22, 22, 0.16)),
+    linear-gradient(155deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.24) 48%, rgba(255, 255, 255, 0.1)),
     var(--glass-button);
   user-select: none;
   -webkit-user-select: none;
@@ -511,9 +516,9 @@ select:focus-visible,
 .accent-button {
   border-color: color-mix(in srgb, var(--glass-edge), var(--gold) 18%);
   background:
-    radial-gradient(circle at 10% 3%, rgba(255, 255, 255, 0.76), transparent 20%),
+    radial-gradient(circle at -18% -22%, rgba(255, 255, 255, 0.5), transparent 60%),
     radial-gradient(circle at 70% 78%, rgba(255, 255, 255, 0.15), transparent 36%),
-    linear-gradient(150deg, rgba(235, 235, 235, 0.34), rgba(150, 150, 150, 0.14) 44%, rgba(22, 22, 22, 0.14)),
+    linear-gradient(150deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.24) 44%, rgba(255, 255, 255, 0.1)),
     color-mix(in srgb, var(--glass-button), var(--gold) 10%);
   color: #2b1a00;
   font-weight: 900;
@@ -652,8 +657,8 @@ summary {
   border: 1px solid color-mix(in srgb, var(--glass-edge), transparent 14%);
   border-radius: 16px;
   background:
-    radial-gradient(circle at 10% 3%, rgba(255, 255, 255, 0.76), transparent 20%),
-    linear-gradient(150deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.07), rgba(10, 32, 42, 0.08)),
+    radial-gradient(circle at -18% -22%, rgba(255, 255, 255, 0.5), transparent 60%),
+    linear-gradient(150deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.1)),
     var(--glass-button);
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,.52),
@@ -817,11 +822,23 @@ summary {
   }
 
   .rail-left {
-    background: linear-gradient(145deg, color-mix(in srgb, var(--blue), transparent 78%), transparent);
+    border: 1px solid color-mix(in srgb, var(--glass-edge), transparent 18%);
+    background:
+      radial-gradient(circle at -18% -22%, rgba(255, 255, 255, 0.5), transparent 60%),
+      linear-gradient(145deg, color-mix(in srgb, var(--blue), transparent 84%), color-mix(in srgb, var(--glass-button), transparent 8%));
+    box-shadow:
+      inset 0 1px 1px rgba(255,255,255,.58),
+      0 10px 24px var(--glass-shadow);
   }
 
   .rail-right {
-    background: linear-gradient(270deg, color-mix(in srgb, #55c47b, transparent 78%), transparent);
+    border: 1px solid color-mix(in srgb, var(--glass-edge), transparent 18%);
+    background:
+      radial-gradient(circle at -18% -22%, rgba(255, 255, 255, 0.5), transparent 60%),
+      linear-gradient(270deg, color-mix(in srgb, #55c47b, transparent 84%), color-mix(in srgb, var(--glass-button), transparent 8%));
+    box-shadow:
+      inset 0 1px 1px rgba(255,255,255,.58),
+      0 10px 24px var(--glass-shadow);
   }
 
   .rail-thumb {
