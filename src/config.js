@@ -1,6 +1,6 @@
 export const DB_NAME = "pocket-ledger-mobile";
 export const DB_VERSION = 3;
-export const APP_VERSION = "2026.07.13-11";
+export const APP_VERSION = "2026.07.13-12";
 
 export const STORES = {
   transactions: "transactions",

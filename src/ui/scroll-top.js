@@ -130,6 +130,11 @@ export function initScrollTopButton({ onNavigate }) {
   menu.addEventListener("contextmenu", suppressNativeTouchUi);
   menu.addEventListener("selectstart", suppressNativeTouchUi);
   backdrop.addEventListener("click", close);
+  document.addEventListener("pointerdown", (event) => {
+    if (!isOpen) return;
+    if (menu.contains(event.target)) return;
+    close();
+  }, { capture: true });
 
   showMenu();
 }
