@@ -734,6 +734,24 @@ function relayConfig() {
   return { url: localStorage.getItem(RELAY_URL_KEY)?.trim() || "", token: localStorage.getItem(RELAY_TOKEN_KEY) || "" };
 }
 
+function applyPairingUrl(pairingUrl) {
+  const parsed = new URL(pairingUrl, location.href);
+  const match = parsed.hash.match(/^#pair=([A-Za-z0-9_-]+)$/);
+  if (!match) throw new Error("找不到配對資料，請確認 QR code 或網址。");
+  const base64 = match[1].replaceAll("-", "+").replaceAll("_", "/");
+  const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+  const bytes = Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
+  const pairing = JSON.parse(new TextDecoder().decode(bytes));
+  const url = new URL(pairing.url);
+  if (pairing.version !== 1 || url.protocol !== "https:" || url.hostname !== "script.google.com" || !String(pairing.token || "")) throw new Error("配對資料格式不正確。");
+  localStorage.setItem(RELAY_URL_KEY, url.href);
+  localStorage.setItem(RELAY_TOKEN_KEY, String(pairing.token));
+  $("relayUrlInput").value = url.href;
+  $("relayTokenInput").value = String(pairing.token);
+  $("cloudState").textContent = "配對完成，準備同步。";
+  return true;
+}
+
 function optionMarkup(items, emptyLabel, selected = "") {
   return `<option value="">${emptyLabel}</option>${items.map((item) => `<option value="${item.id}" data-name="${String(item.name).replaceAll('"', '&quot;')}" data-account-id="${item.accountId || ""}" ${item.id === selected ? "selected" : ""}>${item.name}</option>`).join("")}`;
 }
@@ -764,18 +782,66 @@ async function pullReferenceData() {
   }
 }
 
-function consumePairingHash() {
-  const match = location.hash.match(/^#pair=([A-Za-z0-9_-]+)$/);
-  if (!match) return false;
+let pairingScannerStream = null;
+let pairingScannerTimer = null;
+
+async function closePairingScanner() {
+  clearInterval(pairingScannerTimer);
+  pairingScannerTimer = null;
+  pairingScannerStream?.getTracks().forEach((track) => track.stop());
+  pairingScannerStream = null;
+  $("pairingScannerVideo").hidden = true;
+  $("pairingScannerDialog").hidden = true;
+}
+
+async function applyPairingFromText() {
   try {
-    const base64 = match[1].replaceAll("-", "+").replaceAll("_", "/");
-    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
-    const bytes = Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
-    const pairing = JSON.parse(new TextDecoder().decode(bytes));
-    const url = new URL(pairing.url);
-    if (pairing.version !== 1 || url.protocol !== "https:" || url.hostname !== "script.google.com" || !String(pairing.token || "")) throw new Error("invalid_pairing");
-    localStorage.setItem(RELAY_URL_KEY, url.href);
-    localStorage.setItem(RELAY_TOKEN_KEY, String(pairing.token));
+    applyPairingUrl($("pairingUrlText").value.trim());
+    await addSyncLog("sync_upload", "success", "Google 中繼 QR 配對完成");
+    await closePairingScanner();
+    await refresh();
+    void syncPendingToCloud();
+  } catch (error) {
+    $("pairingScannerStatus").textContent = `配對失敗：${error.message}`;
+  }
+}
+
+async function openPairingScanner() {
+  $("pairingScannerDialog").hidden = false;
+  $("pairingScannerStatus").textContent = "正在啟動相機…";
+  $("pairingUrlText").value = "";
+  if (!("BarcodeDetector" in window)) {
+    $("pairingScannerStatus").textContent = "此瀏覽器不支援內建 QR 掃描，請貼上平台顯示的配對網址。";
+    return;
+  }
+  try {
+    const detector = new BarcodeDetector({ formats: ["qr_code"] });
+    pairingScannerStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+    const video = $("pairingScannerVideo");
+    video.srcObject = pairingScannerStream;
+    video.hidden = false;
+    await video.play();
+    $("pairingScannerStatus").textContent = "請將 QR code 放入畫面中。";
+    pairingScannerTimer = setInterval(async () => {
+      try {
+        const codes = await detector.detect(video);
+        const value = codes[0]?.rawValue;
+        if (!value) return;
+        $("pairingUrlText").value = value;
+        await applyPairingFromText();
+      } catch {
+        /* keep scanning */
+      }
+    }, 600);
+  } catch (error) {
+    $("pairingScannerStatus").textContent = `相機啟動失敗：${error.message}。也可以貼上配對網址。`;
+  }
+}
+
+function consumePairingHash() {
+  if (!location.hash.match(/^#pair=([A-Za-z0-9_-]+)$/)) return false;
+  try {
+    applyPairingUrl(location.href);
     history.replaceState(null, "", `${location.pathname}${location.search}`);
     return true;
   } catch {
@@ -908,6 +974,25 @@ async function syncPendingToCloud() {
   await cleanupPlatformCopies({ automatic: true });
 }
 
+async function runManualSync(source = "settings") {
+  const button = source === "wallet" ? $("walletSyncButton") : $("syncNowButton");
+  const originalText = button?.textContent;
+  if (button) {
+    button.disabled = true;
+    button.textContent = "同步中…";
+  }
+  $("cloudState").textContent = "正在準備同步…";
+  try {
+    await syncPendingToCloud();
+    $("cloudState").textContent = "同步檢查完成。";
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = originalText;
+    }
+  }
+}
+
 function applyTheme(theme) {
   const next = theme === "dark" ? "dark" : "light";
   document.documentElement.dataset.theme = next;
@@ -1001,8 +1086,11 @@ function initEvents() {
     await refresh();
     void syncPendingToCloud();
   });
-  $("syncNowButton").addEventListener("click", syncPendingToCloud);
-  $("walletSyncButton").addEventListener("click", syncPendingToCloud);
+  $("scanPairingButton").addEventListener("click", openPairingScanner);
+  $("applyPairingUrlButton").addEventListener("click", applyPairingFromText);
+  $("closePairingScannerButton").addEventListener("click", closePairingScanner);
+  $("syncNowButton").addEventListener("click", () => runManualSync("settings"));
+  $("walletSyncButton").addEventListener("click", () => runManualSync("wallet"));
   $("paymentRouteInput").addEventListener("change", (event) => {
     const accountId = event.currentTarget.selectedOptions[0]?.dataset.accountId;
     if (accountId) $("accountInput").value = accountId;

@@ -352,6 +352,30 @@ select:focus-visible,
   width: 100%;
   margin: 1rem 0 0;
 }
+.cloud-title-actions {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2.45rem;
+  min-height: 2.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--glass-button);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+.scanner-video {
+  width: 100%;
+  max-height: 48vh;
+  object-fit: cover;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: #000;
+}
 .modal-layer { position: fixed; inset: 0; z-index: 40; display: grid; place-items: end center; padding: 1rem; background: rgba(8, 12, 20, .48); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .modal-layer[hidden] { display: none; }
 .modal-card { width: min(100%, 520px); padding: 1rem; border: 1px solid var(--line); border-radius: 24px; background: var(--surface-strong); box-shadow: var(--shadow); }

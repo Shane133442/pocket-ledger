@@ -1,93 +1,93 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="zh-Hant">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#d99a00" />
-    <meta name="description" content="手機快速記帳採集端 PWA：離線記帳、IndexedDB 儲存、JSON/CSV 匯出匯入。" />
+    <meta name="description" content="??敹恍?撣單?垢 PWA嚗蝺?撣喋ndexedDB ?脣??SON/CSV ?臬?臬?? />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icon.svg" />
     <link rel="stylesheet" href="./styles.css" />
-    <title>記帳金庫 Pocket Ledger</title>
+    <title>閮董?澈 Pocket Ledger</title>
   </head>
   <body>
     <main class="app-shell">
       <header class="topbar">
         <div>
-          <p class="eyebrow">手機採集端 PWA</p>
-          <h1>記帳金庫</h1>
+          <p class="eyebrow">???⊿?蝡?PWA</p>
+          <h1>閮董?澈</h1>
         </div>
-        <button id="themeToggle" class="ghost-button" type="button" aria-label="切換亮暗色">🌙</button>
+        <button id="themeToggle" class="ghost-button" type="button" aria-label="??鈭格???>??</button>
       </header>
 
       <section id="captureStart" class="spendable-strip glass-card" aria-live="polite">
         <span class="status-dot" aria-hidden="true"></span>
-        <span class="spendable-label">本月估計尚可花費</span>
-        <strong id="spendableAmount">等待平台額度快照</strong>
-        <small id="spendableMeta">同步平台後即可離線查看</small>
+        <span class="spendable-label">?祆?隡啗?撠?梯祥</span>
+        <strong id="spendableAmount">蝑?撟喳憿漲敹怎</strong>
+        <small id="spendableMeta">?郊撟喳敺?舫蝺??/small>
       </section>
 
       <section class="app-page is-active" data-page="capture">
       <section class="calculator-card glass-card" aria-labelledby="quickCaptureTitle">
         <div class="section-title">
           <div>
-            <p class="label">先記金額，細節晚點補</p>
-            <h2 id="quickCaptureTitle">快速記帳</h2>
+            <p class="label">????嚗敦蝭??鋆?/p>
+            <h2 id="quickCaptureTitle">敹恍?撣?/h2>
           </div>
-          <span id="saveHint" class="save-hint">離線可用</span>
+          <span id="saveHint" class="save-hint">?Ｙ??舐</span>
         </div>
 
-        <div class="type-switch" aria-label="收支類型">
-          <button type="button" data-capture-type="income" aria-pressed="false">收入</button>
-          <button type="button" data-capture-type="expense" class="is-selected" aria-pressed="true">支出</button>
+        <div class="type-switch" aria-label="?嗆憿?">
+          <button type="button" data-capture-type="income" aria-pressed="false">?嗅</button>
+          <button type="button" data-capture-type="expense" class="is-selected" aria-pressed="true">?臬</button>
         </div>
 
         <div class="display">
-          <small id="formula">輸入金額</small>
+          <small id="formula">頛詨??</small>
           <output id="amountDisplay">0</output>
-          <button id="clearButton" class="display-clear" type="button" aria-label="清除金額">×</button>
+          <button id="clearButton" class="display-clear" type="button" aria-label="皜??">?</button>
         </div>
 
-        <div class="keypad" aria-label="金額小鍵盤">
+        <div class="keypad" aria-label="??撠??>
           <button type="button" data-key="7">7</button>
           <button type="button" data-key="8">8</button>
           <button type="button" data-key="9">9</button>
-          <button id="backspaceButton" class="icon-key" type="button" aria-label="退一格">⌫</button>
+          <button id="backspaceButton" class="icon-key" type="button" aria-label="?銝??>??/button>
           <button type="button" data-key="4">4</button>
           <button type="button" data-key="5">5</button>
           <button type="button" data-key="6">6</button>
-          <button type="button" data-key="+" class="operator-key">＋</button>
+          <button type="button" data-key="+" class="operator-key">嚗?/button>
           <button type="button" data-key="1">1</button>
           <button type="button" data-key="2">2</button>
           <button type="button" data-key="3">3</button>
-          <button type="button" data-key="-" class="operator-key">－</button>
+          <button type="button" data-key="-" class="operator-key">嚗?/button>
           <button type="button" data-key="0">0</button>
           <button type="button" data-key="00">00</button>
           <button type="button" data-key=".">.</button>
-          <button id="equalsButton" class="accent-button" type="button">＝</button>
+          <button id="equalsButton" class="accent-button" type="button">嚗?/button>
         </div>
 
-        <div id="actionRail" class="action-rail" aria-label="向左滑編輯、點按儲存、向右滑語音">
-          <button id="railEditButton" class="rail-side rail-left" type="button" aria-label="編輯完整資料">
+        <div id="actionRail" class="action-rail" aria-label="?椰皛楊頛胯??摮??單?隤">
+          <button id="railEditButton" class="rail-side rail-left" type="button" aria-label="蝺刻摩摰鞈?">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.25V20h2.75L17.8 8.95l-2.75-2.75L4 17.25Zm15.9-11.1a1 1 0 0 0 0-1.42l-.63-.63a1 1 0 0 0-1.42 0l-1.16 1.16 2.75 2.75 1.16-1.16Z"/></svg>
           </button>
-          <button id="actionThumb" class="primary-button rail-thumb" type="button"><span>記帳</span></button>
-          <button id="railVoiceButton" class="rail-side rail-right" type="button" aria-label="語音輸入名目">
+          <button id="actionThumb" class="primary-button rail-thumb" type="button"><span>閮董</span></button>
+          <button id="railVoiceButton" class="rail-side rail-right" type="button" aria-label="隤頛詨?">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2Z"/></svg>
           </button>
         </div>
 
         <div class="recent-captures">
-          <p class="label">最近三筆</p>
+          <p class="label">?餈?蝑?/p>
           <div id="recentTransactionList" class="recent-list" aria-live="polite"></div>
         </div>
       </section>
 
       <section class="status-card glass-card compact-status">
-        <div><p class="label">今日支出</p><strong id="todayTotal">0 元</strong></div>
-        <div><p class="label">等待同步</p><strong id="pendingCount">0 筆</strong></div>
-        <div><p class="label">資料位置</p><strong>手機</strong></div>
+        <div><p class="label">隞?臬</p><strong id="todayTotal">0 ??/strong></div>
+        <div><p class="label">蝑??郊</p><strong id="pendingCount">0 蝑?/strong></div>
+        <div><p class="label">鞈?雿蔭</p><strong>??</strong></div>
       </section>
       </section>
 
@@ -95,13 +95,13 @@
         <section class="glass-card">
           <div class="section-title">
             <div>
-              <p class="label">採集區</p>
-              <h2>手機本地資料</h2>
+              <p class="label">?⊿??</p>
+              <h2>???砍鞈?</h2>
             </div>
-            <input id="searchInput" class="search-input" type="search" placeholder="搜尋名目、分類、日期" />
+            <input id="searchInput" class="search-input" type="search" placeholder="?????憿?? />
           </div>
           <div id="transactionList" class="transaction-list" aria-live="polite"></div>
-          <button id="walletSyncButton" class="primary-button wallet-sync-button" type="button">立即同步手機資料</button>
+          <button id="walletSyncButton" class="primary-button wallet-sync-button" type="button">蝡?郊??鞈?</button>
         </section>
       </section>
 
@@ -109,10 +109,10 @@
         <section class="glass-card">
           <div class="section-title">
             <div>
-              <p class="label">Google 採集中繼站</p>
-              <h2>金庫帳本</h2>
+              <p class="label">Google ?⊿?銝剔匱蝡?/p>
+              <h2>?澈撣單</h2>
             </div>
-            <span id="vaultSummary" class="save-hint">尚未同步</span>
+            <span id="vaultSummary" class="save-hint">撠?郊</span>
           </div>
           <div id="cloudTransactionList" class="transaction-list" aria-live="polite"></div>
         </section>
@@ -121,126 +121,139 @@
       <section class="app-page" data-page="settings" hidden>
         <section class="glass-card">
           <div class="section-title">
-            <div><p class="label">Google 採集中繼站</p><h2>雲端同步</h2></div>
-            <span id="cloudState" class="save-hint">尚未設定</span>
+            <div><p class="label">Google ?⊿?銝剔匱蝡?/p><h2>?脩垢?郊</h2></div>
+            <div class="cloud-title-actions"><span id="cloudState" class="save-hint">尚未設定</span><button id="scanPairingButton" class="icon-button" type="button" aria-label="掃描配對 QR code">📷</button></div>
           </div>
           <div class="sync-config">
-            <label>Apps Script 網址<input id="relayUrlInput" type="url" placeholder="https://script.google.com/macros/s/…/exec" /></label>
-            <label>配對碼<input id="relayTokenInput" type="password" autocomplete="off" placeholder="只儲存在這支手機" /></label>
+            <label>Apps Script 蝬脣?<input id="relayUrlInput" type="url" placeholder="https://script.google.com/macros/s/??exec" /></label>
+            <label>??蝣?input id="relayTokenInput" type="password" autocomplete="off" placeholder="?芸摮???" /></label>
           </div>
           <div class="sync-actions">
-            <button id="saveRelayButton" type="button">儲存連線設定</button>
-            <button id="syncNowButton" class="primary-button" type="button">立即同步</button>
+            <button id="saveRelayButton" type="button">?脣????閮剖?</button>
+            <button id="syncNowButton" class="primary-button" type="button">蝡?郊</button>
           </div>
-          <p class="notice">記帳永遠先存入手機；有網路時會自動嘗試上傳。只有取得雲端收據後才會標示「雲端」。</p>
+          <p class="notice">閮董瘞賊????交?璈??雯頝舀????閰虫??喋??敺蝡舀????璅內?蝡胯?/p>
         </section>
 
         <section class="glass-card">
           <div class="section-title">
             <div>
-              <p class="label">救援與備份</p>
-              <h2>手動匯出 / 匯入</h2>
+              <p class="label">???隞?/p>
+              <h2>???臬 / ?臬</h2>
             </div>
-            <span id="syncSummary" class="save-hint">尚未同步</span>
+            <span id="syncSummary" class="save-hint">撠?郊</span>
           </div>
           <div class="sync-actions">
-            <button id="exportJsonButton" type="button">匯出 JSON</button>
-            <button id="exportCsvButton" type="button">匯出 CSV</button>
+            <button id="exportJsonButton" type="button">?臬 JSON</button>
+            <button id="exportCsvButton" type="button">?臬 CSV</button>
             <label class="file-button">
-              匯入 JSON
+              ?臬 JSON
               <input id="importJsonInput" type="file" accept="application/json,.json" />
             </label>
           </div>
-          <label class="cleanup-setting"><input id="autoCleanupInput" type="checkbox" /> 自動清理已送達平台滿 7 天的手機資料</label>
-          <button id="cleanupPlatformButton" type="button">清理資料</button>
-          <p class="notice">匯出後不會自動刪除手機資料。匯出的 JSON / CSV 之後再回到本地桌面平台手動匯入。</p>
+          <label class="cleanup-setting"><input id="autoCleanupInput" type="checkbox" /> ?芸?皜?撌脤?撟喳皛?7 憭拍???鞈?</label>
+          <button id="cleanupPlatformButton" type="button">皜?鞈?</button>
+          <p class="notice">?臬敺????斗?璈???箇? JSON / CSV 銋????唳?唳??Ｗ像?唳???乓?/p>
           <details id="trashSection">
-            <summary class="trash-summary-button">垃圾桶（<span id="trashCount">0</span>）</summary>
-            <p class="notice">垃圾桶不影響快速記帳。可逐筆還原，或經二次確認後永久刪除。</p>
+            <summary class="trash-summary-button">?獢塚?<span id="trashCount">0</span>嚗?/summary>
+            <p class="notice">?獢嗡?敶梢敹恍?撣喋????嚗?蝬?甈∠Ⅱ隤?瘞訾??芷??/p>
             <div id="trashList" class="transaction-list"></div>
-            <button id="emptyTrashButton" class="danger-button" type="button">清空垃圾桶</button>
+            <button id="emptyTrashButton" class="danger-button" type="button">皜征?獢?/button>
           </details>
           <div id="syncLogList" class="sync-log-list"></div>
         </section>
       </section>
-      <footer class="app-footer"><p id="appVersion" class="version-label">版本載入中…</p></footer>
+      <footer class="app-footer"><p id="appVersion" class="version-label">?頛銝凌?/p></footer>
     </main>
 
     <div id="appMenu" class="app-menu" hidden>
       <div id="appMenuBackdrop" class="app-menu-backdrop" hidden></div>
-      <button id="appMenuMain" class="app-menu-main" type="button" aria-label="回到記帳頁">
+      <button id="appMenuMain" class="app-menu-main" type="button" aria-label="?閮董??>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.2 3.25h9.6A2.2 2.2 0 0 1 19 5.45v13.1a2.2 2.2 0 0 1-2.2 2.2H7.2A2.2 2.2 0 0 1 5 18.55V5.45a2.2 2.2 0 0 1 2.2-2.2Zm.95 3.15v4.05h7.7V6.4h-7.7Zm.35 6.1v1.9h1.9v-1.9H8.5Zm3.55 0v1.9h1.9v-1.9h-1.9Zm3.55 0v1.9h1.9v-1.9h-1.9ZM8.5 16.05v1.9h1.9v-1.9H8.5Zm3.55 0v1.9h1.9v-1.9h-1.9Zm3.55 0v1.9h1.9v-1.9h-1.9Z"/></svg>
       </button>
-      <button class="app-menu-item" type="button" data-page-tab="wallet" aria-label="錢包">
+      <button class="app-menu-item" type="button" data-page-tab="wallet" aria-label="?Ｗ?">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H17a2 2 0 0 1 2 2v1h.5A1.5 1.5 0 0 1 21 9.5v8A2.5 2.5 0 0 1 18.5 20h-12A2.5 2.5 0 0 1 4 17.5v-10Zm2.5-.5a.5.5 0 0 0 0 1H17V7H6.5Zm9.75 6a1.75 1.75 0 1 0 0 3.5H19V13h-2.75Z"/></svg>
       </button>
-      <button class="app-menu-item" type="button" data-page-tab="vault" aria-label="金庫">
+      <button class="app-menu-item" type="button" data-page-tab="vault" aria-label="?澈">
         <svg viewBox="0 0 68 68" aria-hidden="true"><path d="M31.08 6.23A24.4 24.4 0 0 1 55.76 20a14 14 0 0 1 5.02 29.46 18 18 0 0 0-1.25-8.42 10 10 0 0 0-6.8-14.9 3.3 3.3 0 0 1-2.6-2.2A16.7 16.7 0 0 0 17.7 29.31a3.33 3.33 0 0 1-3.33 3.34 6.67 6.67 0 0 0 0 13.33h10.6a18 18 0 0 0 .55 6.67H14.36A13.33 13.33 0 0 1 11.23 26.35 24.4 24.4 0 0 1 31.08 6.23Z"/><path d="M42.82 33.31a14.5 14.5 0 1 0 0 29 14.5 14.5 0 0 0 0-29Zm-5.31 10.36h10.35v2.08h-2.2v7.04c0 .53.15.8.36.99.22.2.51.31.81.31.31 0 .6-.1.8-.28.2-.18.35-.42.35-.92h2.08a4.07 4.07 0 0 1-3.24 3.27c-.8 0-1.6-.29-2.22-.87a3.36 3.36 0 0 1-1-2.5v-7.04h-1.93v5.14c0 1.44-.68 2.7-1.55 3.62-.88.92-1.92 1.59-3.12 1.59v-2.07c.25 0 1.02-.32 1.6-.94.59-.62.99-1.45.99-2.19v-5.15h-2.08v-2.08Zm1.07-4.17h8.21v2.07h-8.21V39.5Z"/></svg>
       </button>
-      <button class="app-menu-item" type="button" data-page-tab="settings" aria-label="設定">
+      <button class="app-menu-item" type="button" data-page-tab="settings" aria-label="閮剖?">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.7 3h2.6l.5 2.2a7.8 7.8 0 0 1 1.6.7l2-1.2 1.8 1.8-1.2 2c.3.5.5 1 .7 1.6l2.3.6v2.6l-2.3.6c-.2.6-.4 1.1-.7 1.6l1.2 2-1.8 1.8-2-1.2c-.5.3-1 .5-1.6.7l-.5 2.2h-2.6l-.5-2.2a7.8 7.8 0 0 1-1.6-.7l-2 1.2-1.8-1.8 1.2-2c-.3-.5-.5-1-.7-1.6L3 13.3v-2.6l2.3-.6c.2-.6.4-1.1.7-1.6l-1.2-2 1.8-1.8 2 1.2c.5-.3 1-.5 1.6-.7L10.7 3Zm1.3 6a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"/></svg>
       </button>
     </div>
 
     <div id="detailDialog" class="modal-layer" hidden>
       <form id="detailForm" class="modal-card detail-form" role="dialog" aria-modal="true" aria-labelledby="detailTitle" hidden>
-        <p class="label">左滑補齊細節</p>
-        <h2 id="detailTitle">完整資料</h2>
+        <p class="label">撌行?鋆?蝝啁?</p>
+        <h2 id="detailTitle">摰鞈?</h2>
         <label>
-          類型
+          憿?
           <select id="typeInput" name="type">
-            <option value="expense">支出</option>
-            <option value="income">收入</option>
+            <option value="expense">?臬</option>
+            <option value="income">?嗅</option>
           </select>
         </label>
         <label>
-          日期
+          ?交?
           <input id="dateInput" name="date" type="date" />
         </label>
         <label>
-          分類
-          <select id="categoryInput" name="category"><option value="">待補齊／未分類</option></select>
+          ??
+          <select id="categoryInput" name="category"><option value="">敺?朣??芸?憿?/option></select>
         </label>
         <label>
-          帳戶
-          <select id="accountInput" name="account"><option value="">由付款方式帶入／待補齊</option></select>
+          撣單
+          <select id="accountInput" name="account"><option value="">?曹?甈暹撘葆?伐?敺?朣?/option></select>
         </label>
         <label>
-          付款方式
-          <select id="paymentRouteInput" name="paymentRoute"><option value="">待補齊／其他</option></select>
+          隞狡?孵?
+          <select id="paymentRouteInput" name="paymentRoute"><option value="">敺?朣??嗡?</option></select>
         </label>
         <label>
-          名目 / 備註
-          <input id="noteInput" name="note" placeholder="例如：午餐炒飯、捷運、加油" />
+          ? / ?酉
+          <input id="noteInput" name="note" placeholder="靘?嚗?擗?憌胯??瘝? />
         </label>
         <div class="form-actions">
-          <button id="cancelEditButton" type="button">取消</button>
-          <button class="primary-button" type="submit">儲存資料</button>
+          <button id="cancelEditButton" type="button">??</button>
+          <button class="primary-button" type="submit">?脣?鞈?</button>
         </div>
       </form>
     </div>
 
     <div id="voiceDialog" class="modal-layer" hidden>
       <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="voiceTitle">
-        <p class="label">語音只會填入名目</p>
-        <h2 id="voiceTitle">確認名目</h2>
-        <button id="voiceRecordButton" class="voice-indicator" data-state="idle" type="button" aria-label="語音輸入">
+        <p class="label">隤?芣?憛怠?</p>
+        <h2 id="voiceTitle">蝣箄??</h2>
+        <button id="voiceRecordButton" class="voice-indicator" data-state="idle" type="button" aria-label="隤頛詨">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2Z"/></svg>
         </button>
-        <input id="voiceNoteInput" type="text" placeholder="請說出或輸入消費名目" />
-        <p id="voiceStatus" class="notice">準備聆聽</p>
+        <input id="voiceNoteInput" type="text" placeholder="隢牧?箸?頛詨瘨祥?" />
+        <p id="voiceStatus" class="notice">皞??</p>
         <div class="form-actions">
-          <button id="cancelVoiceButton" type="button">取消</button>
-          <button id="retryVoiceButton" class="voice-toggle-button" type="button" aria-label="開始或結束語音輸入">
+          <button id="cancelVoiceButton" type="button">??</button>
+          <button id="retryVoiceButton" class="voice-toggle-button" type="button" aria-label="???????唾撓??>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2Z"/></svg>
           </button>
-          <button id="confirmVoiceButton" class="primary-button" type="button">確認並儲存</button>
+          <button id="confirmVoiceButton" class="primary-button" type="button">蝣箄?銝血摮?/button>
         </div>
       </section>
     </div>
 
+    <div id="pairingScannerDialog" class="modal-layer" hidden>
+      <div class="modal-card">
+        <h2>掃描配對 QR code</h2>
+        <video id="pairingScannerVideo" class="scanner-video" playsinline muted hidden></video>
+        <p id="pairingScannerStatus" class="notice">請允許相機權限，或貼上平台產生的配對網址。</p>
+        <label>配對網址<input id="pairingUrlText" type="url" placeholder="https://shane133442.github.io/pocket-ledger/#pair=…" /></label>
+        <div class="sync-actions">
+          <button id="applyPairingUrlButton" type="button">套用配對網址</button>
+          <button id="closePairingScannerButton" type="button">關閉</button>
+        </div>
+      </div>
+    </div>
+
     <div id="undoToast" class="undo-toast" role="status" aria-live="polite" hidden>
-      <span>已移入垃圾桶</span><button id="undoDeleteButton" type="button">Undo</button>
+      <span>撌脩宏?亙??暹▲</span><button id="undoDeleteButton" type="button">Undo</button>
     </div>
 
     <template id="transactionTemplate">
@@ -254,8 +267,8 @@
           <strong></strong>
           <span></span>
           <div class="item-actions">
-            <button type="button" data-action="edit">編輯</button>
-            <button type="button" data-action="delete">刪除</button>
+            <button type="button" data-action="edit">蝺刻摩</button>
+            <button type="button" data-action="delete">?芷</button>
           </div>
         </div>
       </article>
