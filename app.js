@@ -33,6 +33,56 @@ let quickType = "expense";
 let voiceRecognition = null;
 let currentPage = "capture";
 
+const PLATFORM_SYNC_STAGES = new Set([
+  "pending_review",
+  "needs_mapping",
+  "ready_for_import",
+  "imported",
+  "discarded",
+  "mobile_deleted_no_capture",
+  "failed",
+  "conflict"
+]);
+
+function normalizePlatformStage(status) {
+  const value = String(status || "").trim();
+  if (PLATFORM_SYNC_STAGES.has(value)) return value;
+  if (value === "received" || value === "created" || value === "updated" || value === "unchanged" || value === "stale_ignored") return "pending_review";
+  return "synced_to_google";
+}
+
+function syncStageLabel(stage) {
+  return {
+    local_saved: "手機",
+    sync_pending: "待同步",
+    synced_to_google: "雲端",
+    pending_review: "平台待補",
+    needs_mapping: "待設定對應",
+    ready_for_import: "平台待匯入",
+    imported: "已入帳",
+    discarded: "已丟棄",
+    mobile_deleted_no_capture: "刪除已確認",
+    failed: "同步失敗",
+    conflict: "衝突"
+  }[stage] || "手機";
+}
+
+function syncStageClass(stage) {
+  if (["local_saved", "sync_pending"].includes(stage)) return "phone";
+  if (stage === "synced_to_google") return "cloud";
+  if (["pending_review", "needs_mapping", "ready_for_import", "imported", "discarded", "mobile_deleted_no_capture"].includes(stage)) return "platform";
+  return "conflict";
+}
+
+function syncStageNote(row) {
+  if (row.sync_stage === "conflict") return row.conflict_reason || row.conflict_meta?.reason || "平台偵測同步衝突，請回平台採集區處理。";
+  if (row.sync_stage === "needs_mapping") return "平台需要補分類、帳戶或付款方式對應。";
+  if (row.sync_stage === "pending_review") return "平台已接收，仍需補齊或確認資料。";
+  if (row.sync_stage === "discarded") return "平台確認刪除未入帳資料。";
+  if (row.sync_stage === "mobile_deleted_no_capture") return "平台收到刪除標記，沒有找到需處理的採集資料。";
+  return "";
+}
+
 function deviceId() {
   let id = localStorage.getItem(DEVICE_KEY);
   if (!id) {
@@ -348,7 +398,7 @@ async function cleanupPlatformCopies({ automatic = false } = {}) {
   await refresh();
 }
 
-function renderTransactions(rows) {
+function renderTransactionsStable(rows) {
   const list = $("transactionList");
   const template = $("transactionTemplate");
   const visible = rows
@@ -382,7 +432,7 @@ function renderTransactions(rows) {
   }
 }
 
-function renderCloudTransactions(rows) {
+function renderCloudTransactionsStable(rows) {
   const list = $("cloudTransactionList");
   const cloudRows = rows
     .filter((row) => !row.trashed_at)
@@ -417,6 +467,81 @@ function renderCloudTransactions(rows) {
     const status = document.createElement("span");
     status.textContent = row.sync_stage === "imported" ? "已入帳" : row.platform_received_at ? "平台待匯入" : row.sync_stage === "failed" ? "同步失敗" : row.sync_stage === "conflict" ? "衝突" : "雲端";
     status.classList.add(`status-${["已入帳", "平台待匯入"].includes(status.textContent) ? "platform" : status.textContent === "雲端" ? "cloud" : "conflict"}`);
+    side.append(amount, status);
+    card.append(info, side);
+    list.append(card);
+  }
+}
+
+function renderTransactions(rows) {
+  const list = $("transactionList");
+  const template = $("transactionTemplate");
+  const visible = rows
+    .filter((row) => !row.trashed_at)
+    .filter((row) => {
+      if (!searchQuery) return true;
+      return [row.note, row.category, row.date, row.type, row.sync_status, row.sync_stage].some((value) => String(value || "").toLowerCase().includes(searchQuery));
+    })
+    .sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
+
+  list.innerHTML = "";
+  if (!visible.length) {
+    list.innerHTML = '<p class="empty-state">目前沒有手機本地資料。</p>';
+    return;
+  }
+
+  for (const row of visible) {
+    const node = template.content.firstElementChild.cloneNode(true);
+    const stage = row.sync_stage || (row.sync_status === "conflict" ? "conflict" : row.platform_received_at ? "pending_review" : row.cloud_received_at ? "synced_to_google" : "local_saved");
+    node.querySelector(".item-meta").textContent = `${row.date}｜${row.type === "income" ? "收入" : "支出"}${row.deleted_at ? "｜已刪除" : ""}`;
+    node.querySelector("h3").textContent = row.note || row.category || "名目待補";
+    node.querySelector(".item-note").textContent = syncStageNote(row) || `${row.category || "待分類"}｜更新 ${new Date(row.updated_at).toLocaleString("zh-TW")}`;
+    node.querySelector(".item-side strong").textContent = money(row.amount);
+    const status = node.querySelector(".item-side span");
+    status.textContent = syncStageLabel(stage);
+    status.classList.add(`status-${syncStageClass(stage)}`);
+    node.querySelector('[data-action="edit"]').addEventListener("click", () => editTransaction(row.id));
+    node.querySelector('[data-action="delete"]').addEventListener("click", () => softDeleteTransaction(row.id));
+    list.append(node);
+  }
+}
+
+function renderCloudTransactions(rows) {
+  const list = $("cloudTransactionList");
+  const cloudRows = rows
+    .filter((row) => !row.trashed_at)
+    .filter((row) => row.cloud_received_at || row.platform_received_at || ["synced_to_google", "pending_review", "needs_mapping", "ready_for_import", "imported", "discarded", "mobile_deleted_no_capture", "conflict", "failed"].includes(row.sync_stage))
+    .sort((a, b) => String(b.platform_received_at || b.cloud_received_at || b.updated_at).localeCompare(String(a.platform_received_at || a.cloud_received_at || a.updated_at)));
+  const imported = cloudRows.filter((row) => row.sync_stage === "imported").length;
+  const waiting = cloudRows.filter((row) => ["pending_review", "needs_mapping", "ready_for_import"].includes(row.sync_stage) || (row.cloud_received_at && !row.platform_received_at)).length;
+  $("vaultSummary").textContent = `雲端 ${cloudRows.length}｜待平台處理 ${waiting}｜已入帳 ${imported}`;
+  list.innerHTML = "";
+  if (!cloudRows.length) {
+    list.innerHTML = '<p class="empty-state">目前沒有雲端中繼資料。</p>';
+    return;
+  }
+  for (const row of cloudRows) {
+    const stage = row.sync_stage || (row.platform_received_at ? "pending_review" : "synced_to_google");
+    const card = document.createElement("article");
+    card.className = "transaction-item";
+    const info = document.createElement("div");
+    const meta = document.createElement("p");
+    meta.className = "item-meta";
+    meta.textContent = `${row.date}｜${row.type === "income" ? "收入" : "支出"}`;
+    const title = document.createElement("h3");
+    title.textContent = row.note || row.category || "名目待補";
+    const note = document.createElement("p");
+    note.className = "item-note";
+    const received = row.platform_received_at || row.cloud_received_at || row.updated_at;
+    note.textContent = syncStageNote(row) || `${row.category || "待分類"}｜${new Date(received).toLocaleString("zh-TW")}`;
+    info.append(meta, title, note);
+    const side = document.createElement("div");
+    side.className = "item-side";
+    const amount = document.createElement("strong");
+    amount.textContent = money(row.amount);
+    const status = document.createElement("span");
+    status.textContent = syncStageLabel(stage);
+    status.classList.add(`status-${syncStageClass(stage)}`);
     side.append(amount, status);
     card.append(info, side);
     list.append(card);
@@ -474,7 +599,7 @@ async function refresh() {
   renderRecentView(rows, { onEdit: editTransaction, onDelete: softDeleteTransaction });
   renderTrash(rows);
   renderSyncLogs(logs);
-  renderCloudState(rows);
+  renderCloudStateStable(rows);
   const snapshot = await getOne(STORES.referenceData, "platform-settings");
   renderSpendableView(calculateSpendable(snapshot, activeRows));
 }
@@ -668,7 +793,20 @@ function renderCloudState(rows) {
   $("cloudState").textContent = `手機 ${phone}｜雲端 ${cloud}｜平台 ${platform}`;
 }
 
-async function syncPendingToCloud() {
+function renderCloudStateStable(rows) {
+  const { url, token } = relayConfig();
+  if (!url || !token) {
+    $("cloudState").textContent = "尚未設定 Google 中繼。";
+    return;
+  }
+  const phone = rows.filter((row) => !row.cloud_received_at && row.sync_status !== "conflict").length;
+  const cloud = rows.filter((row) => row.cloud_received_at && !row.platform_received_at).length;
+  const platform = rows.filter((row) => row.platform_received_at).length;
+  const conflict = rows.filter((row) => row.sync_stage === "conflict" || row.sync_status === "conflict").length;
+  $("cloudState").textContent = `手機 ${phone}｜雲端 ${cloud}｜平台 ${platform}${conflict ? `｜衝突 ${conflict}` : ""}`;
+}
+
+async function syncPendingToCloudLegacy() {
   const config = relayConfig();
   if (!config.url || !config.token) { $("cloudState").textContent = "缺少網址或配對碼"; return; }
   if (!navigator.onLine) { $("cloudState").textContent = "目前離線，資料留在手機"; return; }
@@ -689,12 +827,81 @@ async function syncPendingToCloud() {
       if (receipt?.cloud_received_at) { row.cloud_received_at = receipt.cloud_received_at; row.synced_at = receipt.cloud_received_at; row.sync_status = receipt.platform_received_at ? "synced" : "pending"; row.sync_stage = "synced_to_google"; }
       if (receipt?.platform_received_at) {
         row.platform_received_at = receipt.platform_received_at;
-        const remoteStage = receipt.sync_status;
-        row.sync_status = remoteStage === "conflict" ? "conflict" : "synced";
-        row.sync_stage = ["ready_for_import", "imported", "failed", "conflict"].includes(remoteStage) ? remoteStage : "ready_for_import";
+        const remoteStage = normalizePlatformStage(receipt.sync_status);
+        row.sync_status = ["conflict", "failed"].includes(remoteStage) ? remoteStage : "synced";
+        row.sync_stage = remoteStage;
       }
       await putOne(STORES.transactions, row);
     } catch (error) { row.sync_stage = "failed"; row.sync_status = "failed"; await putOne(STORES.transactions, row); await addSyncLog("sync_upload", "failed", `${row.id}: ${error.message}`); }
+  }
+  await pullReferenceData();
+  await refresh();
+  await cleanupPlatformCopies({ automatic: true });
+}
+
+async function syncPendingToCloud() {
+  const config = relayConfig();
+  if (!config.url || !config.token) {
+    $("cloudState").textContent = "尚未設定 Google 中繼。";
+    return;
+  }
+  if (!navigator.onLine) {
+    $("cloudState").textContent = "目前離線，資料已留在手機，稍後可重試同步。";
+    return;
+  }
+  const rows = (await getAll(STORES.transactions)).filter((row) => (!row.trashed_at || (row.trash_reason === "manual" && row.deleted_at)) && row.sync_stage !== "imported");
+  if (!rows.length) return;
+  $("cloudState").textContent = "正在同步到 Google 中繼…";
+  for (const row of rows) {
+    try {
+      const eventId = row.relay_event_id || crypto.randomUUID();
+      if (!row.cloud_received_at) {
+        row.relay_event_id = eventId;
+        row.sync_status = "pending";
+        row.sync_stage = row.sync_status === "conflict" ? "conflict" : "sync_pending";
+        await putOne(STORES.transactions, row);
+        await fetch(config.url, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: "push",
+            token: config.token,
+            event: {
+              event_id: eventId,
+              record_id: row.id,
+              device_id: row.source_device,
+              revision: row.revision,
+              base_revision: row.base_revision,
+              updated_at: row.updated_at,
+              payload: row
+            }
+          })
+        });
+      }
+      const receipt = await jsonp(config.url, { action: "receipt", token: config.token, event_id: eventId });
+      if (receipt?.cloud_received_at) {
+        row.cloud_received_at = receipt.cloud_received_at;
+        row.synced_at = receipt.cloud_received_at;
+        row.sync_status = receipt.platform_received_at ? "synced" : "pending";
+        row.sync_stage = "synced_to_google";
+      }
+      if (receipt?.platform_received_at) {
+        row.platform_received_at = receipt.platform_received_at;
+        row.platform_capture_id = receipt.platform_capture_id || row.platform_capture_id || null;
+        const remoteStage = normalizePlatformStage(receipt.sync_status);
+        row.sync_status = ["conflict", "failed"].includes(remoteStage) ? remoteStage : "synced";
+        row.sync_stage = remoteStage;
+        if (remoteStage === "conflict") row.conflict_reason = receipt.conflict_reason || "平台偵測同步衝突，請回平台採集區處理。";
+      }
+      await putOne(STORES.transactions, row);
+    } catch (error) {
+      row.sync_stage = "failed";
+      row.sync_status = "failed";
+      await putOne(STORES.transactions, row);
+      $("cloudState").textContent = `同步失敗：${error.message}`;
+      await addSyncLog("sync_upload", "failed", `${row.id}: ${error.message}`);
+    }
   }
   await pullReferenceData();
   await refresh();

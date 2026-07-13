@@ -4,7 +4,13 @@ export function autoCleanupEnabled(storage, key) {
 
 export function cleanupCandidates(rows, automatic) {
   const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  return rows.filter((row) => !row.trashed_at && row.platform_received_at && (!automatic || Date.parse(row.platform_received_at) <= cutoff));
+  const cleanableStages = new Set(["imported", "discarded", "mobile_deleted_no_capture"]);
+  return rows.filter((row) => {
+    if (row.trashed_at) return false;
+    if (!row.platform_received_at) return false;
+    if (!cleanableStages.has(row.sync_stage)) return false;
+    return !automatic || Date.parse(row.platform_received_at) <= cutoff;
+  });
 }
 
 export function approximateBytes(rows) {
