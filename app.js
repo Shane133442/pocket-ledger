@@ -808,19 +808,28 @@ async function applyPairingFromText() {
 
 async function openPairingScanner() {
   $("pairingScannerDialog").hidden = false;
-  $("pairingScannerStatus").textContent = "正在啟動相機…";
+  $("pairingScannerStatus").textContent = "正在檢查相機與 QR 掃描支援。";
   $("pairingUrlText").value = "";
-  if (!("BarcodeDetector" in window)) {
-    $("pairingScannerStatus").textContent = "此瀏覽器不支援內建 QR 掃描，請貼上平台顯示的配對網址。";
+  if (!window.isSecureContext) {
+    $("pairingScannerStatus").textContent = "目前不是安全連線環境，瀏覽器不允許開啟相機。請改貼上平台顯示的配對網址。";
     return;
   }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    $("pairingScannerStatus").textContent = "此裝置或瀏覽器不支援網頁相機。請改貼上平台顯示的配對網址。";
+    return;
+  }
+  const canDecodeQr = "BarcodeDetector" in window;
   try {
-    const detector = new BarcodeDetector({ formats: ["qr_code"] });
     pairingScannerStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
     const video = $("pairingScannerVideo");
     video.srcObject = pairingScannerStream;
     video.hidden = false;
     await video.play();
+    if (!canDecodeQr) {
+      $("pairingScannerStatus").textContent = "相機已開啟，但此 iOS/PWA 環境不支援內建 QR 解碼。請用系統相機掃平台 QR，或把配對網址貼到下方欄位。";
+      return;
+    }
+    const detector = new BarcodeDetector({ formats: ["qr_code"] });
     $("pairingScannerStatus").textContent = "請將 QR code 放入畫面中。";
     pairingScannerTimer = setInterval(async () => {
       try {
@@ -834,7 +843,12 @@ async function openPairingScanner() {
       }
     }, 600);
   } catch (error) {
-    $("pairingScannerStatus").textContent = `相機啟動失敗：${error.message}。也可以貼上配對網址。`;
+    const reason = error?.name === "NotAllowedError"
+      ? "相機權限被拒。請到 iOS 設定允許相機，或改貼配對網址。"
+      : error?.name === "NotFoundError"
+        ? "找不到可用相機。請改貼配對網址。"
+        : `相機啟動失敗：${error.message || error.name || "未知錯誤"}。請改貼配對網址。`;
+    $("pairingScannerStatus").textContent = reason;
   }
 }
 
@@ -872,6 +886,15 @@ function renderCloudStateStable(rows) {
   $("cloudState").textContent = `手機 ${phone}｜雲端 ${cloud}｜平台 ${platform}${conflict ? `｜衝突 ${conflict}` : ""}`;
 }
 
+function setSyncProgress(message, { error = false } = {}) {
+  const walletStatus = $("walletSyncStatus");
+  if (walletStatus) {
+    walletStatus.textContent = message;
+    walletStatus.classList.toggle("is-error", error);
+  }
+  $("cloudState").textContent = message;
+}
+
 async function syncPendingToCloudLegacy() {
   const config = relayConfig();
   if (!config.url || !config.token) { $("cloudState").textContent = "缺少網址或配對碼"; return; }
@@ -905,23 +928,29 @@ async function syncPendingToCloudLegacy() {
   await cleanupPlatformCopies({ automatic: true });
 }
 
-async function syncPendingToCloud() {
+async function syncPendingToCloud({ source = "background" } = {}) {
   const config = relayConfig();
   if (!config.url || !config.token) {
-    $("cloudState").textContent = "尚未設定 Google 中繼。";
-    return;
+    setSyncProgress("同步失敗：缺少 Apps Script 網址或配對碼。", { error: true });
+    return { processed: 0, failed: 1 };
   }
   if (!navigator.onLine) {
-    $("cloudState").textContent = "目前離線，資料已留在手機，稍後可重試同步。";
-    return;
+    setSyncProgress("同步暫停：目前離線，資料已留在手機，稍後可重試。", { error: true });
+    return { processed: 0, failed: 1 };
   }
+  setSyncProgress("同步階段 1/5：讀取手機待同步資料。");
   const rows = (await getAll(STORES.transactions)).filter((row) => (!row.trashed_at || (row.trash_reason === "manual" && row.deleted_at)) && row.sync_stage !== "imported");
-  if (!rows.length) return;
-  $("cloudState").textContent = "正在同步到 Google 中繼…";
-  for (const row of rows) {
+  if (!rows.length) {
+    setSyncProgress(source === "wallet" ? "沒有待同步資料，手機資料已是最新檢查狀態。" : "沒有待同步資料。");
+    return { processed: 0, failed: 0 };
+  }
+  let processed = 0;
+  let failed = 0;
+  for (const [index, row] of rows.entries()) {
     try {
       const eventId = row.relay_event_id || crypto.randomUUID();
       if (!row.cloud_received_at) {
+        setSyncProgress(`同步階段 2/5：上傳 Google 中繼（${index + 1}/${rows.length}）。`);
         row.relay_event_id = eventId;
         row.sync_status = "pending";
         row.sync_stage = row.sync_status === "conflict" ? "conflict" : "sync_pending";
@@ -945,6 +974,7 @@ async function syncPendingToCloud() {
           })
         });
       }
+      setSyncProgress(`同步階段 3/5：讀取雲端收據（${index + 1}/${rows.length}）。`);
       const receipt = await jsonp(config.url, { action: "receipt", token: config.token, event_id: eventId });
       if (receipt?.cloud_received_at) {
         row.cloud_received_at = receipt.cloud_received_at;
@@ -960,18 +990,28 @@ async function syncPendingToCloud() {
         row.sync_stage = remoteStage;
         if (remoteStage === "conflict") row.conflict_reason = receipt.conflict_reason || "平台偵測同步衝突，請回平台採集區處理。";
       }
+      setSyncProgress(`同步階段 4/5：更新手機本地狀態（${index + 1}/${rows.length}）。`);
       await putOne(STORES.transactions, row);
+      processed += 1;
     } catch (error) {
       row.sync_stage = "failed";
       row.sync_status = "failed";
       await putOne(STORES.transactions, row);
-      $("cloudState").textContent = `同步失敗：${error.message}`;
+      failed += 1;
+      setSyncProgress(`同步失敗：${row.note || row.category || row.id}，環節：Google 中繼上傳或收據讀取。原因：${error.message}`, { error: true });
       await addSyncLog("sync_upload", "failed", `${row.id}: ${error.message}`);
     }
   }
+  setSyncProgress("同步階段 5/5：更新平台設定快照與清理規則。");
   await pullReferenceData();
   await refresh();
   await cleanupPlatformCopies({ automatic: true });
+  if (failed) {
+    setSyncProgress(`同步完成但有失敗：成功 ${processed} 筆，失敗 ${failed} 筆。請查看上方錯誤原因或稍後重試。`, { error: true });
+  } else {
+    setSyncProgress(`同步完成：已處理 ${processed} 筆手機資料。`);
+  }
+  return { processed, failed };
 }
 
 async function runManualSync(source = "settings") {
@@ -981,10 +1021,9 @@ async function runManualSync(source = "settings") {
     button.disabled = true;
     button.textContent = "同步中…";
   }
-  $("cloudState").textContent = "正在準備同步…";
+  setSyncProgress("正在準備同步。");
   try {
-    await syncPendingToCloud();
-    $("cloudState").textContent = "同步檢查完成。";
+    await syncPendingToCloud({ source });
   } finally {
     if (button) {
       button.disabled = false;
