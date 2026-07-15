@@ -1,4 +1,4 @@
-const CACHE_NAME = "pocket-ledger-v30";
+const CACHE_NAME = "pocket-ledger-v31";
 const ASSETS = [
   "./",
   "./index.html",
@@ -19,7 +19,8 @@ const ASSETS = [
   "./src/ui/action-rail.js",
   "./src/ui/capture-view.js",
   "./src/ui/recent-view.js",
-  "./src/ui/scroll-top.js"
+  "./src/ui/scroll-top.js",
+  "./vendor/jsQR.js"
 ];
 
 self.addEventListener("install", (event) => {

@@ -784,12 +784,14 @@ async function pullReferenceData() {
 
 let pairingScannerStream = null;
 let pairingScannerTimer = null;
+let pairingScannerCanvas = null;
 
 async function closePairingScanner() {
   clearInterval(pairingScannerTimer);
   pairingScannerTimer = null;
   pairingScannerStream?.getTracks().forEach((track) => track.stop());
   pairingScannerStream = null;
+  pairingScannerCanvas = null;
   $("pairingScannerVideo").hidden = true;
   $("pairingScannerDialog").hidden = true;
 }
@@ -810,6 +812,7 @@ async function openPairingScanner() {
   $("pairingScannerDialog").hidden = false;
   $("pairingScannerStatus").textContent = "正在檢查相機與 QR 掃描支援。";
   $("pairingUrlText").value = "";
+
   if (!window.isSecureContext) {
     $("pairingScannerStatus").textContent = "目前不是安全連線環境，瀏覽器不允許開啟相機。請改貼上平台顯示的配對網址。";
     return;
@@ -818,36 +821,67 @@ async function openPairingScanner() {
     $("pairingScannerStatus").textContent = "此裝置或瀏覽器不支援網頁相機。請改貼上平台顯示的配對網址。";
     return;
   }
+
   const canDecodeQr = "BarcodeDetector" in window;
+  const canDecodeWithJsQr = typeof window.jsQR === "function";
+
   try {
     pairingScannerStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
     const video = $("pairingScannerVideo");
     video.srcObject = pairingScannerStream;
     video.hidden = false;
     await video.play();
-    if (!canDecodeQr) {
-      $("pairingScannerStatus").textContent = "相機已開啟，但此 iOS/PWA 環境不支援內建 QR 解碼。請用系統相機掃平台 QR，或把配對網址貼到下方欄位。";
+
+    if (!canDecodeQr && !canDecodeWithJsQr) {
+      $("pairingScannerStatus").textContent = "相機已開啟，但 QR 解碼器未載入。請改貼上平台顯示的配對網址。";
       return;
     }
-    const detector = new BarcodeDetector({ formats: ["qr_code"] });
-    $("pairingScannerStatus").textContent = "請將 QR code 放入畫面中。";
+
+    if (canDecodeQr) {
+      const detector = new BarcodeDetector({ formats: ["qr_code"] });
+      $("pairingScannerStatus").textContent = "請將 QR code 放入畫面中。";
+      pairingScannerTimer = setInterval(async () => {
+        try {
+          const codes = await detector.detect(video);
+          const value = codes[0]?.rawValue;
+          if (!value) return;
+          $("pairingUrlText").value = value;
+          await applyPairingFromText();
+        } catch {
+          /* keep scanning */
+        }
+      }, 600);
+      return;
+    }
+
+    pairingScannerCanvas = document.createElement("canvas");
+    const context = pairingScannerCanvas.getContext("2d", { willReadFrequently: true });
+    $("pairingScannerStatus").textContent = "相機已開啟，正在用 PWA 內建解碼器掃描 QR。";
     pairingScannerTimer = setInterval(async () => {
       try {
-        const codes = await detector.detect(video);
-        const value = codes[0]?.rawValue;
+        if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
+        const width = video.videoWidth;
+        const height = video.videoHeight;
+        if (!width || !height) return;
+        pairingScannerCanvas.width = width;
+        pairingScannerCanvas.height = height;
+        context.drawImage(video, 0, 0, width, height);
+        const image = context.getImageData(0, 0, width, height);
+        const code = window.jsQR(image.data, width, height, { inversionAttempts: "attemptBoth" });
+        const value = code?.data;
         if (!value) return;
         $("pairingUrlText").value = value;
         await applyPairingFromText();
       } catch {
         /* keep scanning */
       }
-    }, 600);
+    }, 500);
   } catch (error) {
     const reason = error?.name === "NotAllowedError"
-      ? "相機權限被拒。請到 iOS 設定允許相機，或改貼配對網址。"
+      ? "相機權限被拒絕。請到 iOS 設定允許相機，或改貼上配對網址。"
       : error?.name === "NotFoundError"
-        ? "找不到可用相機。請改貼配對網址。"
-        : `相機啟動失敗：${error.message || error.name || "未知錯誤"}。請改貼配對網址。`;
+        ? "找不到可用相機。請改貼上配對網址。"
+        : `相機開啟失敗：${error.message || error.name || "未知錯誤"}。請改貼上配對網址。`;
     $("pairingScannerStatus").textContent = reason;
   }
 }

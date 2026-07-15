@@ -1,7 +1,7 @@
 {
   "name": "記帳金庫 Pocket Ledger",
   "short_name": "記帳金庫",
-  "description": "手機快速記帳採集端：離線記帳、IndexedDB 儲存、JSON/CSV 匯出匯入。",
+  "description": "手機快速記帳採集端：離線記帳、IndexedDB 本地儲存、JSON/CSV 匯出與 Google 中繼同步。",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
